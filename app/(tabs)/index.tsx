@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { ComponentProps, useState } from "react";
+import { useRouter } from 'expo-router';
+import React, { ComponentProps } from "react";
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 //cards
@@ -13,22 +14,17 @@ type CardProps = {
 };
 
 //Upcoming cards
-const upccards = ['Card 1', 'Card 2', 'Card 3'];
+//const upccards = ['Card 1', 'Card 2', 'Card 3'];
 
 export default function Dashboard() {
-  const [selected, setSelected] = useState<number | null>(null);
+  const router = useRouter();
 
   const sampleItems = [
-    { id: "1", title: "New user registered", date: "2026-04-22", priority: "High" },
-    { id: "2", title: "Order placed", date: "2026-04-25", priority: "High" },
-    { id: "3", title: "Payment received", date: "2026-04-29", priority: "High" },
-    { id: "4", title: "Server alert resolved", date: "2026-04-23", priority: "Medium" },
-    { id: "5", title: "New user registered", date: "2026-04-22", priority: "Low" },
-    { id: "6", title: "Order placed", date: "2026-04-25", priority: "High" },
-    { id: "7", title: "Payment received", date: "2026-04-29", priority: "High" },
-    { id: "8", title: "Server alert resolved", date: "2026-04-23", priority: "Medium" },
-    { id: "9", title: "Order placed", date: "2026-04-22", priority: "Low" },
-    { id: "10", title: "Payment received", date: "2026-04-25", priority: "High" }
+    { id: "1", acctno: "024458", acctname: "John Cruz", contact: "09171234567", address: "12 Sampaguita St, Angeles City", request: "Reconnection", date: "2026-04-22", priority: "High", status: "In Progress" },
+    { id: "2", acctno: "023158", acctname: "Maria Santos", contact: "09987654321", address: "90 National Highway, Bataan", request: "Disconnection", date: "2026-04-25", priority: "High", status: "Done" },
+    { id: "3", acctno: "022358", acctname: "Kevin Reyes", contact: "09223334444", address: "78 Kalaklan Rd, Zambales", request: "Check wiring", date: "2026-04-29", priority: "High", status: "In Progress" },
+    { id: "4", acctno: "026258", acctname: "Angela Dizon", contact: "09175556666", address: "45 Gordon Ave, Subic", request: "Reconnection", date: "2026-04-23", priority: "Medium", status: "Todo" },
+    { id: "5", acctno: "023458", acctname: "Mark Flores", contact: "09334445555", address: "123 Rizal St, Olongapo City", request: "Relocation", date: "2026-04-22", priority: "Low", status: "In Progress" },
   ];
 
   const priorityColors = {
@@ -42,7 +38,7 @@ export default function Dashboard() {
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.subtitle}>Welcome Back!</Text>
+        <Text style={styles.subtitle}>Welcome back, User!</Text>
         <Text style={styles.title}>You have 3 tasks coming up today. 👍</Text>
       </View>
 
@@ -57,7 +53,7 @@ export default function Dashboard() {
       <View style={styles.upcoming}>
         <Text style={styles.titleupc}>Upcoming Tasks</Text>
 
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => router.navigate('/tasks')}>
           <Text style={styles.seeAll}>See All</Text>
         </TouchableOpacity>
       </View>
@@ -95,7 +91,7 @@ export default function Dashboard() {
 
             {/* LEFT */}
             <View style={styles.left}>
-              <Text style={styles.itemText}>{item.title}</Text>
+              <Text style={styles.itemText}>{item.request}</Text>
               <Text style={styles.itemRight}>{item.date}</Text>
             </View>
 
@@ -141,7 +137,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#1E1E2D',
-    marginTop: 5,
   },
   subtitle: {
     fontSize: 15,
@@ -227,6 +222,7 @@ const styles = StyleSheet.create({
   itemText: {
     fontSize: 14,
     color: "#111827",
+    fontWeight: "bold",
   },
 
   itemRight: {
@@ -273,7 +269,7 @@ const styles = StyleSheet.create({
   },
 
   titleupc: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '500',
     color: '#1E1E2D',
     marginTop: 20,
