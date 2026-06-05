@@ -5,16 +5,13 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 import '../../global.css';
 
-import AntDesign from '@expo/vector-icons/AntDesign';
 import Feather from '@expo/vector-icons/Feather';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
-import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Tabs } from 'expo-router';
 
 import { TouchableHighlight, View } from 'react-native';
-
 
 // Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -76,7 +73,7 @@ export default function RootLayout() {
         name="index"
         options={{
           title: 'Dashboard',
-          tabBarIcon: ({ color }) => <AntDesign name="home" size={20} color={color} />,
+          tabBarIcon: ({ color }) => <Feather name="grid" size={20} color={color} />
         }}
       />
       <Tabs.Screen
@@ -90,28 +87,10 @@ export default function RootLayout() {
         name="maps"
         options={{
           title: 'Maps',
-          tabBarIcon: ({ color }) => <FontAwesome6 name="location-dot" size={20} color={color} />
+          tabBarIcon: ({ color }) => <Feather name="map" size={20} color={color} />
         }}
       />
     </Tabs>
-
-    /* 
-    <ErrorBoundary>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <BottomSheetModalProvider>
-          <UIThemeProvider>
-            <ThemeProvider value={colorScheme === 'light' ? DarkTheme : DefaultTheme}>
-              <Stack>
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="+not-found" />
-              </Stack>
-              <StatusBar style="auto" />
-            </ThemeProvider>
-          </UIThemeProvider>
-        </BottomSheetModalProvider>
-      </GestureHandlerRootView>
-    </ErrorBoundary>
-    */
   );
 
 }

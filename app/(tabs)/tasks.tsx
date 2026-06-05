@@ -1,240 +1,318 @@
-import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
-import { FlatList, ListRenderItem, Modal, StyleSheet, Text, TouchableHighlight, TouchableOpacity, View } from "react-native";
+import { Feather, Ionicons } from "@expo/vector-icons";
+import { ComponentProps, default as React, useState } from "react";
+import { FlatList, ListRenderItem, Modal, StyleSheet, Text, TextInput, TouchableHighlight, TouchableOpacity, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 type ItemType = {
   id: string;
-  acctno: string | number;
+  acctno: string;
   acctname: string;
-  contact: string | number;
+  contact: string;
   address: string;
   request: string;
   date: string;
   priority: string;
   status: string;
+  LM: string;
 };
 
 const sampleItems: ItemType[] = [
-  { id: "1", acctno: "024458", acctname: "John Cruz", contact: "09171234567", address: "12 Sampaguita St, Angeles City", request: "Reconnection", date: "2026-04-22", priority: "High", status: "In Progress" },
-  { id: "2", acctno: "023158", acctname: "Maria Santos", contact: "09987654321", address: "90 National Highway, Bataan", request: "Disconnection", date: "2026-04-25", priority: "High", status: "Done" },
-  { id: "3", acctno: "022358", acctname: "Kevin Reyes", contact: "09223334444", address: "78 Kalaklan Rd, Zambales", request: "Check wiring", date: "2026-04-29", priority: "High", status: "In Progress" },
-  { id: "4", acctno: "026258", acctname: "Angela Dizon", contact: "09175556666", address: "45 Gordon Ave, Subic", request: "Reconnection", date: "2026-04-23", priority: "Medium", status: "Todo" },
-  { id: "5", acctno: "023458", acctname: "Mark Flores", contact: "09334445555", address: "123 Rizal St, Olongapo City", request: "Relocation", date: "2026-04-22", priority: "Low", status: "In Progress" },
+  { id: "1", acctno: "024458", acctname: "John Cruz", contact: "09171234567", address: "12 Sampaguita St, Angeles City", request: "Reconnection", date: "2026-04-22", priority: "High", status: "In Progress", LM: "Alex Morgan" },
+  { id: "2", acctno: "023158", acctname: "Maria Santos", contact: "09987654321", address: "90 National Highway, Bataan", request: "Disconnection", date: "2026-04-25", priority: "Medium", status: "Done", LM: "John Doe" },
+  { id: "3", acctno: "022358", acctname: "Kevin Reyes", contact: "09223334444", address: "78 Kalaklan Rd, Zambales", request: "Check wiring", date: "2026-04-29", priority: "High", status: "In Progress", LM: "Michael" },
+  { id: "4", acctno: "026258", acctname: "Angela Dizon", contact: "09175556666", address: "45 Gordon Ave, Subic", request: "Reconnection", date: "2026-04-23", priority: "Medium", status: "Todo", LM: "Sarah Jane Smith" },
+  { id: "5", acctno: "023458", acctname: "Mark Flores", contact: "09334445555", address: "123 Rizal St, Olongapo City", request: "Relocation", date: "2026-04-22", priority: "Low", status: "In Progress", LM: "Jay Alcantara" },
 ];
 
+//Priority Badge
 const priorityColors = {
-  High: '#FF4D4D',
-  Medium: '#FFA500',
-  Low: '#00a300',
+  High: {
+    bg: "#FEE2E2",
+    text: "#EF4444",
+  },
+
+  Medium: {
+    bg: "#FEF3C7",
+    text: "#D97706",
+  },
+
+  Low: {
+    bg: "#DCFCE7",
+    text: "#16A34A",
+  },
 };
 
-// remove duplicate values - dropdown
-// const uniqueData = Array.from(
-// new Map(sampleItems.map(item => [item.priority, item])).values()
-//);
+//Status Colors
+const StatusColors = {
+  Todo: '#6b6b6b',
+  "In Progress": '#6b6b6b',
+  Done: '#00a300',
+};
 
 export default function Tasks() {
 
-  const [LocModalVisible, setLocModalVisible] = useState(false);
+  //Make Card Visible
+  //const [LocModalVisible, setLocModalVisible] = useState(false);
   const [InfoModalVisible, setInfoModalVisible] = useState(false);
-  const [selectedCard, setSelectedCard] = useState<ItemType | null>(null);
 
-  // on press info
+  //Modal Info
   const openInfoModal = (item: ItemType) => {
     setSelectedCard(item);
     setInfoModalVisible(true);
   };
 
-  // on press loc 
-  const openLocModal = (item: ItemType) => {
-    setSelectedCard(item);
-    setLocModalVisible(true);
-  };
+  //Get Data - Modal
+  const [selectedCard, setSelectedCard] = useState<ItemType | null>(null);
 
-  // Get screen width
-  // const screenWidth = Dimensions.get('window').width;
-  // Optional: limit max width for large screens (web/tablet)
-  // const cardWidth = Math.min(screenWidth * 0.9, 500); // 90% of screen or max 500px
+  //Filter Button - Tasks
+  const [selectedFilter, setSelectedFilter] = useState("All");
+  const filters = ["All", "Todo", "In Progress", "Done"];
+
+  //Icons
+  type IconName = ComponentProps<typeof Ionicons>["name"];
+
+  //Modal - Consumer Detail Row
+  interface DetailRowProps {
+    icon: IconName;
+    title: string;
+    subtitle: string;
+  }
+
+  //get avatar initials
+  const getAvatarLetter = (name = "") => {
+    return name
+      .trim()
+      .split(" ")
+      .filter(Boolean)
+      .map(part => part[0].toUpperCase())
+      .slice(0, 2)
+      .join("");
+  };
 
   const renderItem: ListRenderItem<ItemType> = ({ item }) => (
 
     <View style={styles.container}>
-
-      {/* Cards */}
       <View style={styles.card}>
-        <View style={styles.textContainer}>
-          <View style={styles.titleRow}>
-            <Text style={styles.title}>{item.request}</Text>
-            <View style={[styles.priorityTag, { backgroundColor: priorityColors[item.priority as keyof typeof priorityColors] || '#888' }]}>
-              <Text style={styles.priorityText}>{item.priority}</Text>
-            </View>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.date}>{item.date}</Text>
-            <Text style={styles.date}> | </Text>
-            <Text style={styles.date}>{item.status}</Text>
-          </View>
-          <Text style={styles.status}>{item.address}</Text>
 
+        {/* Status + Priority */}
+        <View style={styles.header}>
+          <View style={styles.statusRow}>
+            <View style={[styles.dot, { backgroundColor: StatusColors[item.status as keyof typeof StatusColors] || '#888' }]} />
+            <Text style={styles.statusText}>{item.status}</Text>
+          </View>
+
+          <View style={[styles.priorityBadge, { backgroundColor: priorityColors[item.priority as keyof typeof priorityColors].bg || '#888' }]}>
+            <Text style={[styles.priorityText, { color: priorityColors[item.priority as keyof typeof priorityColors].text || '#888' }]}>{item.priority}</Text>
+          </View>
         </View>
 
-        {/* Buttons */}
-        <View style={styles.actions}>
-          <TouchableHighlight underlayColor="#cecece" onPress={() => openInfoModal(item)} style={styles.button}>
-            <Ionicons name="eye" size={20} color="black" />
-          </TouchableHighlight>
+        {/* Title */}
+        <Text style={styles.title}>{item.request}</Text>
 
-          {/* Location Button -> Modal */}
-          <TouchableHighlight underlayColor="#cecece" onPress={() => openLocModal(item)} style={styles.button}>
-            <Ionicons name="location-sharp" size={20} color="black" />
-          </TouchableHighlight>
+        {/* Description */}
+        <Text style={styles.descriptionCard}>
+          Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt
+        </Text>
 
-          {/* <TouchableHighlight underlayColor="#cecece" onPress={() => console.log('Delete')} style={styles.button}>
-            <Ionicons name="trash" size={18} color="black" />
-          </TouchableHighlight>  */}
+        {/* Date + Location */}
+        <View style={styles.infoRow}>
+          <View style={styles.infoItem}>
+            <Feather name="clock" size={15} color="#6B7280" />
+            <Text style={styles.infoText}>{item.date}</Text>
+          </View>
+
+          <View style={styles.infoItem}>
+            <Feather name="map-pin" size={15} color="#6B7280" />
+            <Text style={styles.infoText}>{item.address}</Text>
+          </View>
         </View>
 
-        {/* Map Modal */}
-        <Modal
-          visible={LocModalVisible}
-          animationType="fade"
-          transparent={true}
-          hardwareAccelerated
-          onRequestClose={() => setLocModalVisible(false)}
-        >
-          <View style={styles.MapModalOverlay}>
-            <View style={styles.MapModalContent}>
-
-              {/* Floating close button */}
-              <TouchableOpacity style={styles.closeInfoButton} onPress={() => setLocModalVisible(false)}>
-                <Text style={styles.closeInfoText}>✕</Text>
-              </TouchableOpacity>
-
-              <Text style={styles.InfoModaltitle}>Map Details</Text>
-
-              {selectedCard && (
-                <>
-                  {/* Non-editable fields */}
-                  <Text style={styles.InfoModalLabel}>{selectedCard.acctno} | {selectedCard.acctname}</Text>
-                  <Text style={styles.InfoModalLabel}>{selectedCard.address}</Text>
-
-                  <View style={styles.InfoModalField}>
-                    <Text style={styles.InfoModalValue}></Text>
-                  </View>
-
-                </>
-              )}
-
-            </View>
+        {/* Avatar + Buttons  */}
+        <View style={styles.footer}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}> {getAvatarLetter(item.LM)}</Text>
           </View>
-        </Modal>
 
-        {/* Info Modal */}
-        <Modal
-          visible={InfoModalVisible}
-          animationType="fade"
-          transparent={true}
-          hardwareAccelerated
-          onRequestClose={() => setInfoModalVisible(false)}
-        >
-          <View style={styles.InfoModalOverlay}>
-            <View style={styles.InfoModalContent}>
+          <View style={styles.actions}>
+            <TouchableHighlight underlayColor="#dde6f8" style={styles.iconButton} onPress={() => openInfoModal(item)} >
+              <Ionicons name="eye-sharp" size={20} color="#374151" />
+            </TouchableHighlight>
 
-              {/* Floating close button */}
-              <TouchableOpacity style={styles.closeInfoButton} onPress={() => setInfoModalVisible(false)}>
-                <Text style={styles.closeInfoText}>✕</Text>
-              </TouchableOpacity>
-
-              <Text style={styles.InfoModaltitle}>Task Details</Text>
-
-              {selectedCard && (
-                <>
-                  {/* Non-editable fields */}
-                  <Text style={styles.InfoModalLabel}>Account No.</Text>
-                  <View style={styles.InfoModalField}>
-                    <Text style={styles.InfoModalValue}>{selectedCard.acctno}</Text>
-                  </View>
-
-                  <Text style={styles.InfoModalLabel}>Consumer</Text>
-                  <View style={styles.InfoModalField}>
-                    <Text style={styles.InfoModalValue}>
-                      {selectedCard.acctname}
-                    </Text>
-                  </View>
-
-                  <Text style={styles.InfoModalLabel}>Address</Text>
-                  <View style={styles.InfoModalField}>
-                    <Text style={styles.InfoModalValue}>{selectedCard.address}</Text>
-                  </View>
-
-                  {/* Mobile */}
-                  <Text style={styles.InfoModalLabel}>Contact No.</Text>
-                  <View style={styles.InfoModalField}>
-                    <Text style={styles.InfoModalValue}>{selectedCard.contact}</Text>
-                  </View>
-
-                  {/* Request */}
-                  <Text style={styles.InfoModalLabel}>Request / Complains</Text>
-                  <View style={styles.InfoModalField}>
-                    <Text style={styles.InfoModalValue}>{selectedCard.request}</Text>
-                  </View>
-
-                  {/* Date */}
-                  <Text style={styles.InfoModalLabel}>Date Created</Text>
-                  <View style={styles.InfoModalField}>
-                    <Text style={styles.InfoModalValue}>{selectedCard.date}</Text>
-                  </View>
-
-                  {/* Priority Tag */}
-                  <Text style={styles.InfoModalLabel}>Priority</Text>
-                  <View style={[styles.InfoPriorityContainer, { backgroundColor: priorityColors[selectedCard.priority as keyof typeof priorityColors] || '#888' }]}>
-                    <Text style={styles.priorityText}>{selectedCard.priority}</Text>
-                  </View>
-
-                  {/* Bottom Buttons */}
-                  <TouchableOpacity
-                    style={styles.InfoSaveButton} onPress={() => { setInfoModalVisible(false); console.log("Done ID:", selectedCard.id); }}
-                  >
-                    <Text style={styles.InfoCloseButtonText}>Mark as Done</Text>
-                  </TouchableOpacity>
-                </>
-              )}
-
-            </View>
+            {/* <TouchableHighlight style={styles.primaryButton} >
+              <Ionicons name="location-outline" size={20} color="#374151" />
+            </TouchableHighlight> */}
           </View>
-        </Modal>
-
+        </View>
       </View>
+
+      {/* View Info - Modal */}
+      <Modal visible={InfoModalVisible} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+
+          <KeyboardAwareScrollView style={styles.ContainerView}
+            enableOnAndroid
+            extraScrollHeight={100}
+            keyboardShouldPersistTaps="handled">
+
+            {selectedCard && (
+              <>
+                {/* Status */}
+                <View style={styles.header}>
+                  <View style={styles.statusRowView}>
+                    <View style={[styles.dotView, { backgroundColor: StatusColors[selectedCard.status as keyof typeof StatusColors] || '#888' }]} />
+                    <Text style={styles.statusView}>{selectedCard.status}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setInfoModalVisible(false)}>
+                    <Ionicons name="close" size={26} color="#374151" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Title */}
+                <Text style={styles.titleView}>{selectedCard.request}</Text>
+                <Text style={styles.description}>
+                  Provide written feedback on the three submitted concepts.
+                </Text>
+
+                {/* Map */}
+                <View style={styles.mapContainer}>
+                  <View style={[styles.locationPin, { backgroundColor: priorityColors[selectedCard.priority as keyof typeof priorityColors].bg || '#888' }]}>
+                    <Ionicons name="location-sharp" size={24} style={{ color: priorityColors[selectedCard.priority as keyof typeof priorityColors].text || '#888' }} />
+                  </View>
+
+                  <View style={styles.remoteBadge}>
+                    <Ionicons name="location-outline" size={16} color="#4B5563" />
+                    <Text style={styles.remoteText}>{selectedCard.address}</Text>
+                  </View>
+                </View>
+
+                {/* Consumer Details */}
+                <Text style={styles.sectionTitle}>Consumer Details</Text>
+                <View style={styles.consumerCard}>
+
+                  <DetailRow
+                    icon="mail-sharp"
+                    title={selectedCard.acctno}
+                    subtitle="Account Number"
+                  />
+
+                  <DetailRow
+                    icon="person-sharp"
+                    title={selectedCard.acctname}
+                    subtitle={"Consumer Name"}
+                  />
+
+                  <DetailRow
+                    icon="call-sharp"
+                    title={selectedCard.contact}
+                    subtitle="Contact Number"
+                  />
+
+                  <DetailRow
+                    icon="time-sharp"
+                    title={selectedCard.date}
+                    subtitle="Due Date"
+                  />
+
+                  <DetailRow
+                    icon="location-sharp"
+                    title={selectedCard.address}
+                    subtitle="Location"
+                  />
+                </View>
+
+                {/* Remarks */}
+                <Text style={styles.sectionTitle}>Remarks</Text>
+                <TextInput
+                  style={styles.remarksInput}
+                  placeholder="Add Remarks"
+                  multiline
+                />
+
+                {/* Done Button */}
+                <TouchableOpacity
+                  style={styles.doneButton}
+                  onPress={() => { setInfoModalVisible(false); console.log("Done ID:", selectedCard.id); }}>
+
+                  <Ionicons
+                    name="checkmark-circle-outline"
+                    size={20}
+                    color="#FFF"
+                  />
+
+                  <Text style={styles.doneText}>Mark as Done</Text>
+                </TouchableOpacity>
+
+              </>
+            )}
+          </KeyboardAwareScrollView>
+        </View>
+      </Modal>
     </View>
   )
+
+  // Consumer Details - Modal
+  function DetailRow({ icon, title, subtitle }: DetailRowProps) {
+    return (
+      <View style={styles.detailRow}>
+        <View style={styles.iconCircle}>
+          <Ionicons name={icon} size={18} color="#1E3A8A" />
+        </View>
+
+        <View>
+          <Text style={styles.detailTitle}>{title}</Text>
+          <Text style={styles.detailSubtitle}>{subtitle}</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <FlatList
       data={sampleItems}
       keyExtractor={(item) => item.id}
       renderItem={renderItem}
+      ListHeaderComponent={
 
-    // Dropdown + Add button  
+        //Search Bar
+        <View style={styles.container}>
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color="#999" />
+            <TextInput
+              placeholder="Search tasks..."
+              placeholderTextColor="#999"
+              style={styles.input}
+            />
+          </View>
 
-    // ListHeaderComponent={
-    // <View className="flex-row items-center" style={styles.containertop}>
-    // <View className="flex-1 border border-gray-300" style={styles.dropdown}>
-    //   <Picker>
-    //     {uniqueData.map((item) => (
-    //     <Picker.Item
-    //       key={item.id}
-    //       label={item.priority}
-    //       value={item.priority}
-    //     />
-    //   ))}
-    //   </Picker>
-    // </View>
+          {/* Task Filter */}
+          <View style={styles.filtersRow}>
+            {filters.map((item) => {
+              const active = selectedFilter === item;
 
-    //   <TouchableOpacity onPress={() => console.log('add')} style={styles.button}>
-    //   <Ionicons name="add" size={20} color="black" />
-    //   </TouchableOpacity>
-    // </View>       
-    // }
+              return (
+                <TouchableOpacity
+                  key={item}
+                  style={[
+                    styles.filterButton,
+                    active && styles.activeFilterButton,
+                  ]}
+                  onPress={() => setSelectedFilter(item)}
+                >
+                  <Text
+                    style={[
+                      styles.filterText,
+                      active && styles.activeFilterText,
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+      }
     />
   );
 }
@@ -242,220 +320,341 @@ export default function Tasks() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f3f4f6",
-    alignItems: "center",
-    marginTop: 2,
+    backgroundColor: "#f9fafb",
   },
 
   card: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 15,
-    marginVertical: 3,
-    marginHorizontal: 10,
-    backgroundColor: '#fff',
-    borderRadius: 8,
+    backgroundColor: "#FFF",
+    borderRadius: 20,
+    padding: 13,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    margin: 8,
+    marginBottom: 0,
   },
-  textContainer: {
+
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  infoRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 7,
+  },
+
+  title: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+    marginTop: 5,
+  },
+
+  actions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+
+  //search bar
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF",
+    borderRadius: 15,
+    paddingHorizontal: 14,
+    height: 40,
+    width: "95%",
+    marginTop: 10,
+    marginLeft: 12,
+  },
+
+  input: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 16,
+  },
+
+  //filter
+  filtersRow: {
+    flexDirection: "row",
+    marginTop: 10,
+    marginBottom: 5,
+    gap: 6,
+    alignItems: "flex-start",
+    flexWrap: "wrap",
+    marginLeft: 15,
+  },
+
+  filterButton: {
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#c4c1c1",
+    paddingHorizontal: 20,
+    height: 35,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  activeFilterButton: {
+    backgroundColor: "#000000",
+  },
+
+  filterText: {
+    color: "#333",
+    fontWeight: "500",
+    fontSize: 13,
+  },
+
+  activeFilterText: {
+    color: "#FFF",
+  },
+
+  //View Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "#f9fafb70",
+  },
+
+  ContainerView: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 10,
+    margin: 16,
     flex: 1,
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+
+  statusRowView: {
+    flexDirection: "row",
+    alignItems: "center",
   },
-  infoRow: {
-    flexDirection: 'row',
+
+  dotView: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#94A3B8",
+    marginRight: 8,
   },
-  title: {
-    fontSize: 16,
-    fontWeight: 'bold',
+
+  statusView: {
+    color: "#64748B",
+    fontSize: 13,
   },
-  priorityTag: {
-    marginLeft: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 1,
-    borderRadius: 5,
+
+  //Remarks + Button
+  remarksInput: {
+    backgroundColor: "#FFF",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    minHeight: 120,
+    textAlignVertical: "top",
+    padding: 16,
   },
+
+  doneButton: {
+    marginTop: 18,
+    marginBottom: 40,
+    height: 40,
+    borderRadius: 15,
+    backgroundColor: "#2563EB",
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "row",
+  },
+
+  doneText: {
+    color: "#FFF",
+    fontSize: 14,
+    fontWeight: "700",
+    marginLeft: 5,
+  },
+
+  //Status + Priority
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 6,
+    backgroundColor: "#1D9BF0",
+    marginRight: 8,
+  },
+
+  statusText: {
+    color: "#475569",
+    fontSize: 12,
+  },
+
+  priorityBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 99,
+  },
+
   priorityText: {
     color: '#fff',
     fontSize: 12,
     fontWeight: 'bold',
   },
-  date: {
-    fontSize: 12,
-    color: '#888',
-    padding: 3,
+
+  //title
+  titleView: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+    marginTop: 12,
   },
-  status: {
-    fontSize: 12,
-    color: '#888',
-    marginLeft: 3,
+
+  description: {
+    fontSize: 13,
+    color: "#64748B",
+    marginTop: 2,
+    lineHeight: 15,
   },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+
+  //Description
+  descriptionCard: {
+    marginTop: 5,
+    color: "#64748B",
+    fontSize: 13,
+    lineHeight: 22,
   },
-  button: {
-    marginLeft: 5,
-    padding: 7,
-    borderWidth: 1,
-    borderColor: '#919191',
-    borderRadius: 6,
-  },
-  dropdown: {
-    marginLeft: 10,
-    maxWidth: 200,
-    margin: 5,
-  },
-  containertop: {
-    flex: 1,
+
+  //Location
+  mapContainer: {
+    height: 200,
+    borderRadius: 24,
+    backgroundColor: "#EEF2F7",
+    marginTop: 15,
+    justifyContent: "center",
     alignItems: "center",
-    marginTop: 10,
-    marginBottom: 10,
-  },
-  clickableText: {
-    fontSize: 12,
-    color: 'blue',
-    textDecorationLine: 'underline',
+    overflow: "hidden",
   },
 
-  //Info Modal
-  InfoModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  InfoModalContent: {
-    width: '90%',
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 10,
+  locationPin: {
+    width: 32,
+    height: 32,
+    borderRadius: 22,
+    backgroundColor: "#2563EB",
+    justifyContent: "center",
+    alignItems: "center",
   },
 
-  InfoModaltitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-
-  closeInfoButton: {
+  remoteBadge: {
     position: "absolute",
-    top: 12,
-    right: 12,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "#f1f1f1",
-    justifyContent: "center",
+    bottom: 16,
+    left: 16,
+    flexDirection: "row",
     alignItems: "center",
-    zIndex: 10,
-  },
-
-  closeInfoText: {
-    fontSize: 12,
-    color: "#333",
-    fontWeight: "700",
-  },
-
-  InfoModalField: {
-    marginBottom: 10,
-    backgroundColor: "#f4f4f4",
-    borderRadius: 8,
-    padding: 8,
-  },
-
-  InfoModalLabel: {
-    fontSize: 12,
-    color: "#666",
-    marginBottom: 4,
-  },
-
-  InfoModalValue: {
-    fontSize: 14,
-    color: "#111",
-    fontWeight: "500",
-  },
-
-  InfoStatusContainer: {
-    alignSelf: "flex-start",
-    backgroundColor: "#ff4d4f",
-    paddingVertical: 6,
-    paddingHorizontal: 14,
+    backgroundColor: "#FFF",
+    paddingHorizontal: 15,
+    paddingVertical: 8,
     borderRadius: 20,
-    marginBottom: 25,
   },
 
-  InfoStatusText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 12,
+  remoteText: {
+    marginLeft: 2,
+    color: "#374151",
+    fontSize: 13,
   },
 
-  InfoPriorityContainer: {
-    alignSelf: "flex-start",
-    backgroundColor: "#ff4d4f",
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    marginBottom: 25,
-  },
-
-  InfopriorityText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 12,
-  },
-
-  InfoCloseButton: {
-    backgroundColor: '#2196F3',
-    paddingVertical: 5,
-    paddingHorizontal: 20,
-    borderRadius: 5,
-  },
-  InfoCloseButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  InfoSaveButton: {
-    backgroundColor: '#008b3a',
-    paddingVertical: 7,
-    paddingHorizontal: 20,
-    borderRadius: 5,
+  infoItem: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-  },
-  InfoSaveButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    marginRight: 18,
   },
 
-  //Map Modal
-  MapModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  infoText: {
+    marginLeft: 5,
+    color: "#64748B",
+    fontSize: 13,
   },
-  MapModalContent: {
-    width: '90%',
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 10,
-  },
-  MapModalText: {
+
+  //Consumer Details
+  sectionTitle: {
+    marginTop: 20,
+    marginBottom: 10,
     fontSize: 16,
-    marginBottom: 20,
+    fontWeight: "700",
+    color: "#111827",
   },
-  MapCloseButton: {
-    backgroundColor: '#2196F3',
-    paddingVertical: 5,
-    paddingHorizontal: 20,
-    borderRadius: 5,
+
+  consumerCard: {
+    backgroundColor: "#FFF",
+    borderRadius: 24,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
-  MapCloseButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+
+  //Avatar + Button
+  footer: {
+    marginTop: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 17,
+    backgroundColor: "#E8EEF9",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  avatarText: {
+    color: "#2563EB",
+    fontWeight: "700",
+    fontSize: 13,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 4,
+  },
+
+  iconButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  // Modal Consumer Info
+  iconCircle: {
+    width: 35,
+    height: 35,
+    borderRadius: 24,
+    backgroundColor: "#E8EEF9",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 14,
+  },
+
+  detailTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111827",
+  },
+
+  detailSubtitle: {
+    color: "#6B7280",
+    marginTop: 1,
+    fontSize: 12,
+  },
+
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 17,
   },
 });

@@ -13,24 +13,44 @@ type CardProps = {
   color: string;
 };
 
-//Upcoming cards
-//const upccards = ['Card 1', 'Card 2', 'Card 3'];
-
 export default function Dashboard() {
   const router = useRouter();
 
   const sampleItems = [
-    { id: "1", acctno: "024458", acctname: "John Cruz", contact: "09171234567", address: "12 Sampaguita St, Angeles City", request: "Reconnection", date: "2026-04-22", priority: "High", status: "In Progress" },
-    { id: "2", acctno: "023158", acctname: "Maria Santos", contact: "09987654321", address: "90 National Highway, Bataan", request: "Disconnection", date: "2026-04-25", priority: "High", status: "Done" },
-    { id: "3", acctno: "022358", acctname: "Kevin Reyes", contact: "09223334444", address: "78 Kalaklan Rd, Zambales", request: "Check wiring", date: "2026-04-29", priority: "High", status: "In Progress" },
-    { id: "4", acctno: "026258", acctname: "Angela Dizon", contact: "09175556666", address: "45 Gordon Ave, Subic", request: "Reconnection", date: "2026-04-23", priority: "Medium", status: "Todo" },
-    { id: "5", acctno: "023458", acctname: "Mark Flores", contact: "09334445555", address: "123 Rizal St, Olongapo City", request: "Relocation", date: "2026-04-22", priority: "Low", status: "In Progress" },
+    { id: "1", acctno: "024458", acctname: "John Cruz", contact: "09171234567", address: "12 Sampaguita St, Angeles City", request: "Reconnection", date: "2026-04-22", priority: "High", status: "In Progress", LM: "Alex Morgan", latitude: 0.3, longitude: 0.2 },
+    { id: "2", acctno: "023158", acctname: "Maria Santos", contact: "09987654321", address: "90 National Highway, Bataan", request: "Disconnection", date: "2026-04-25", priority: "Medium", status: "Done", LM: "John Doe", latitude: 0.5, longitude: 0.5 },
+    { id: "3", acctno: "022358", acctname: "Kevin Reyes", contact: "09223334444", address: "78 Kalaklan Rd, Zambales", request: "Check wiring", date: "2026-04-29", priority: "High", status: "In Progress", LM: "Michael", latitude: 0.1, longitude: 0.5 },
+    { id: "4", acctno: "026258", acctname: "Angela Dizon", contact: "09175556666", address: "45 Gordon Ave, Subic", request: "Reconnection", date: "2026-04-23", priority: "Medium", status: "Todo", LM: "Sarah Jane Smith", latitude: 0.4, longitude: 0.7 },
+    { id: "5", acctno: "023458", acctname: "Mark Flores", contact: "09334445555", address: "123 Rizal St, Olongapo City", request: "Relocation", date: "2026-04-22", priority: "Low", status: "In Progress", LM: "Jay Alcantara", latitude: 0.7, longitude: 0.4 },
   ];
 
+  //Priority Badge
   const priorityColors = {
-    High: '#FF4D4D',
-    Medium: '#FFA500',
-    Low: '#00a300',
+    High: {
+      bg: "#FEE2E2",
+      text: "#EF4444",
+    },
+
+    Medium: {
+      bg: "#FEF3C7",
+      text: "#D97706",
+    },
+
+    Low: {
+      bg: "#DCFCE7",
+      text: "#16A34A",
+    },
+  };
+
+  //get avatar initials
+  const getAvatarLetter = (name = "") => {
+    return name
+      .trim()
+      .split(" ")
+      .filter(Boolean)
+      .map(part => part[0].toUpperCase())
+      .slice(0, 2)
+      .join("");
   };
 
   return (
@@ -44,9 +64,9 @@ export default function Dashboard() {
 
       {/* Cards */}
       <View style={styles.grid}>
-        <DashboardCard icon="build-outline" title="Todo" value="22" color="#6C63FF" />
-        <DashboardCard icon="calendar-outline" title="Pending" value="12" color="#FF7A00" />
-        <DashboardCard icon="checkmark-circle-outline" title="Done" value="15" color="#00C897" />
+        <DashboardCard icon="settings-outline" title="Todo" value="22" color="#6C63FF" />
+        <DashboardCard icon="time-outline" title="Pending" value="12" color="#FF7A00" />
+        <DashboardCard icon="checkmark-done-sharp" title="Done" value="15" color="#00C897" />
       </View>
 
       {/* Upcoming */}
@@ -56,53 +76,31 @@ export default function Dashboard() {
         <TouchableOpacity onPress={() => router.navigate('/tasks')}>
           <Text style={styles.seeAll}>See All</Text>
         </TouchableOpacity>
+
       </View>
-
-      {/* Upcoming cards */}
-      {/* <View style={styles.upccard}>
-        {upccards.map((item, index) => (
-          <TouchableOpacity
-            key={index}
-            style={[
-              styles.cardupc,
-              selected === index && styles.selectedCard
-            ]}
-            onPress={() => setSelected(index)}
-          >
-            <Text
-              style={[
-                styles.text,
-                selected === index && styles.selectedText
-              ]}
-            >
-              {item}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View> */}
-
 
       <FlatList
         data={sampleItems}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
 
-          <View style={styles.listItem}>
-
-            {/* LEFT */}
-            <View style={styles.left}>
-              <Text style={styles.itemText}>{item.request}</Text>
-              <Text style={styles.itemRight}>{item.date}</Text>
+          <TouchableOpacity style={styles.taskCard}>
+            <View style={styles.taskIcon}>
+              <Text style={styles.avatarText}> {getAvatarLetter(item.LM)}</Text>
             </View>
 
-            {/* RIGHT */}
+            <View style={styles.taskInfo}>
+              <Text style={styles.taskTitle}>{item.request}</Text>
+              <Text style={styles.taskAddress}>{item.date}</Text>
+            </View>
 
             {item.priority && (
-              <View style={[styles.priorityTag, { backgroundColor: priorityColors[item.priority as keyof typeof priorityColors] || '#888' }]}>
-                <Text style={styles.priorityDot}>{item.priority}</Text>
+              <View style={[styles.priorityBadge, { backgroundColor: priorityColors[item.priority as keyof typeof priorityColors].bg || '#888' }]}>
+                <Text style={[styles.priorityText, { color: priorityColors[item.priority as keyof typeof priorityColors].text || '#888' }]}>{item.priority}</Text>
               </View>
             )}
-          </View>
+
+          </TouchableOpacity>
         )}
       />
     </View>
@@ -114,7 +112,7 @@ function DashboardCard({ icon, title, value, color }: CardProps) {
   return (
     <TouchableOpacity style={styles.card}>
       <View style={[styles.iconWrapper, { backgroundColor: color + "20" }]}>
-        <Ionicons name={icon} size={26} color={color} />
+        <Ionicons name={icon} size={16} color={color} />
       </View>
       <Text style={styles.titleCard}>{title}</Text>
       <Text style={styles.valueCard}>{value}</Text>
@@ -129,7 +127,7 @@ const styles = StyleSheet.create({
     padding: 15,
   },
 
-  /* HEADER */
+  /* header */
   header: {
     marginBottom: 15,
   },
@@ -143,32 +141,27 @@ const styles = StyleSheet.create({
     color: '#7A7A8C',
   },
 
-  /* CARDS */
+  /* Cards */
   grid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
 
   card: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 6,
-    paddingVertical: 20,
-    borderRadius: 18,
-    alignItems: 'center',
-    marginRight: 10,
-
-    // modern soft shadow
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    width: "31%",
+    backgroundColor: "#FFF",
+    borderRadius: 20,
+    padding: 25,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
   },
 
   iconWrapper: {
-    padding: 8,
-    borderRadius: 18,
+    width: 30,
+    height: 30,
+    borderRadius: 19,
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 10,
   },
 
@@ -179,83 +172,25 @@ const styles = StyleSheet.create({
   },
 
   valueCard: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 24,
+    fontWeight: '700',
     color: '#333',
   },
 
-  /* LIST CARD */
-  // listCard: {
-  //   width: "95%",
-  //   backgroundColor: "#fff",
-  //   borderRadius: 8,
-  //   padding: 16,
-  //   marginTop: 10,
-  //   flex: 1,
-  //   marginBottom: 10,
+  /*Priority Badge */
 
-  // },
-
-  listItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 15,
-    marginVertical: 5,
-    marginHorizontal: 5,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-
-    // modern soft shadow
-    shadowColor: '#000',
-    shadowOpacity: 0.09,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
+  priorityBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 99,
   },
-
-  left: {
-    flexDirection: "column",
-    flex: 1,
-  },
-
-  itemText: {
-    fontSize: 14,
-    color: "#111827",
-    fontWeight: "bold",
-  },
-
-  itemRight: {
-    fontSize: 12,
-    color: "#6b7280",
-  },
-
-  itemTime: {
-    fontSize: 12,
-    color: "#6b7280",
-  },
-
-  /*Priority Label */
-  priorityTag: {
-    borderRadius: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 1,
-  },
-  priorityDot: {
+  priorityText: {
     color: '#fff',
-    fontWeight: 'bold',
     fontSize: 12,
+    fontWeight: 'bold',
   },
 
-  dotcategory: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 10,
-  },
-
-  /* Upcoming */
-
+  /* Upcoming Tasks */
   upcoming: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -265,39 +200,61 @@ const styles = StyleSheet.create({
   seeAll: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#2f95dc',
-  },
-
-  titleupc: {
-    fontSize: 18,
-    fontWeight: '500',
-    color: '#1E1E2D',
+    color: '#64748B',
     marginTop: 20,
     marginBottom: 15,
   },
 
-  // upccard: {
-  //   flexDirection: 'row',
-  //   justifyContent: 'space-between',
-  // },
-  // cardupc: {
-  //   flex: 1,
-  //   margin: 3,
-  //   height: 25,
-  //   borderRadius: 20,
-  //   backgroundColor: '#eee',
-  //   justifyContent: 'center',
-  //   alignItems: 'center',
-  // },
-  // selectedCard: {
-  //   backgroundColor: '#4e4e4e',
-  // },
-  // text: {
-  //   fontSize: 12,
-  // },
-  // selectedText: {
-  //   color: '#ffffff',
-  //   fontWeight: 'bold',
-  // },
+  titleupc: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+    marginTop: 20,
+    marginBottom: 15,
+  },
 
+  taskCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 20,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+
+  taskIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#F1F5F9",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+
+  taskInfo: {
+    flex: 1
+  },
+
+  taskTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111827"
+  },
+
+  taskAddress: {
+    fontSize: 12,
+    color: "#6b7280"
+  },
+
+  avatarText: {
+    color: "#475569",
+    fontWeight: "700",
+    fontSize: 13,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 4,
+  },
 })
