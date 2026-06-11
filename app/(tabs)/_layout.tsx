@@ -1,17 +1,15 @@
 import { useColorScheme } from '@/hooks/useColorScheme';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFonts } from 'expo-font';
+import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { Modal, Pressable, Text } from "react-native";
 import 'react-native-reanimated';
+import { SafeAreaView } from "react-native-safe-area-context";
 import '../../global.css';
 
-import Feather from '@expo/vector-icons/Feather';
-import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
-import Ionicons from '@expo/vector-icons/Ionicons';
-
-import { Tabs } from 'expo-router';
-
-import { TouchableHighlight, View } from 'react-native';
+import { View } from 'react-native';
 
 // Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -34,63 +32,137 @@ export default function RootLayout() {
     return null;
   }
 
+  const [open, setOpen] = useState(false);
+  const router = useRouter();
+
   return (
+    <>
+      <SafeAreaView edges={["bottom"]} style={{ flex: 1 }}>
+        <Stack
+          screenOptions={{
+            headerBackVisible: false,
+            headerRight: () => (
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                {/* Refresh button (optional) */}
+                <Pressable onPress={() => console.log("refresh")}
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 17,
+                    borderWidth: 1,
+                    borderColor: "#ddd",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: "#fff",
+                  }}>
 
-    <Tabs
-      screenOptions={{
-        headerShown: true,
-        headerLeft: () => null,
-        //headerTitle: '',
-        tabBarActiveTintColor: '#2f95dc',
-        tabBarInactiveTintColor: '#919191',
-        headerRight: () => (
+                  <Ionicons name="sync-sharp" size={18} color="#333" />
 
-          <View style={{ flexDirection: 'row', marginRight: 10, gap: 8 }}>
-            <TouchableHighlight underlayColor="#cecece" onPress={() => console.log('refresh')}
+                </Pressable>
+
+                {/* Profile button */}
+                <Pressable onPress={() => setOpen(true)}>
+                  <View
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 17,
+                      backgroundColor: "#111",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Text style={{ color: "white", fontSize: 12 }}>JC</Text>
+                  </View>
+                </Pressable>
+              </View>
+            ),
+          }}
+        />
+      </SafeAreaView>
+
+      {/* Dropdown Modal */}
+      <Modal transparent visible={open} animationType="fade">
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0, 0, 0, 0)",
+          }}
+          onPress={() => setOpen(false)}
+        >
+          <View
+            style={{
+              position: "absolute",
+              top: 60,
+              right: 10,
+              width: 160,
+              backgroundColor: "white",
+              borderRadius: 12,
+              padding: 12,
+              elevation: 5,
+            }}
+          >
+            {/* User Info */}
+            <View style={{ marginBottom: 10 }}>
+              <Text style={{ fontWeight: "bold" }}>John Cruz</Text>
+              <Text style={{ color: "gray", fontSize: 12 }}>
+                jc@acme.com
+              </Text>
+            </View>
+
+            {/* Menu Items */}
+            <MenuItem icon="grid-outline" label="Dashboard" route="/" onClose={() => setOpen(false)} />
+            <MenuItem icon="bulb-outline" label="Tasks" route="/tasks" onClose={() => setOpen(false)} />
+            <MenuItem icon="location-outline" label="Maps" route="/maps" onClose={() => setOpen(false)} />
+            {/* <MenuItem icon="person-outline" label="login" route="/login" onClose={() => setOpen(false)} /> */}
+            {/* <MenuItem icon="notifications-outline" label="Notifications" />
+            <MenuItem icon="settings-outline" label="Settings" /> */}
+
+            <View style={{ height: 10 }} />
+
+            {/* <MenuItem icon="help-circle-outline" label="Help & Support" /> */}
+
+            <Pressable
+              onPress={() => router.push("/login")}
               style={{
-                padding: 6,
-                borderWidth: 1,
-                borderColor: '#919191',
-                borderRadius: 6,
-              }} >
-              <Feather name="refresh-ccw" size={17} color="black" />
-            </TouchableHighlight>
-
-            <TouchableHighlight underlayColor="#cecece" onPress={() => console.log('user')}
-              style={{
-                padding: 6,
-                borderWidth: 1,
-                borderColor: '#919191',
-                //backgroundColor: 'black',
-                borderRadius: 6,
-              }} >
-              <Ionicons name="person" size={17} color="black" />
-            </TouchableHighlight>
+                flexDirection: "row",
+                alignItems: "center",
+                paddingVertical: 10,
+              }}
+            >
+              <Ionicons name="log-out-outline" size={18} color="red" />
+              <Text style={{ marginLeft: 10, color: "red" }}>
+                Sign out
+              </Text>
+            </Pressable>
           </View>
-        ),
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Dashboard',
-          tabBarIcon: ({ color }) => <Feather name="grid" size={20} color={color} />
-        }}
-      />
-      <Tabs.Screen
-        name="tasks"
-        options={{
-          title: 'Tasks',
-          tabBarIcon: ({ color }) => <FontAwesome5 name="tasks" size={20} color={color} />
-        }}
-      />
-      <Tabs.Screen
-        name="maps"
-        options={{
-          title: 'Maps',
-          tabBarIcon: ({ color }) => <Feather name="map" size={20} color={color} />
-        }}
-      />
-    </Tabs>
+        </Pressable>
+      </Modal>
+    </>
+
   );
 
+}
+
+function MenuItem({ icon, label, route, onClose }: any) {
+  const router = useRouter();
+
+  const handlePress = () => {
+    onClose?.();
+    router.push(route);
+  };
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 10,
+      }}
+    >
+      <Ionicons name={icon} size={18} color="#333" />
+      <Text style={{ marginLeft: 10 }}>{label}</Text>
+    </Pressable>
+  );
 }

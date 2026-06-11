@@ -1,8 +1,9 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { ComponentProps, default as React, useState } from "react";
+import { ComponentProps, default as React, useMemo, useState } from "react";
 import { FlatList, ListRenderItem, Modal, StyleSheet, Text, TextInput, TouchableHighlight, TouchableOpacity, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
+//sample data
 type ItemType = {
   id: string;
   acctno: string;
@@ -68,6 +69,22 @@ export default function Tasks() {
   const [selectedFilter, setSelectedFilter] = useState("All");
   const filters = ["All", "Todo", "In Progress", "Done"];
 
+  //Search Filter
+  const [search, setSearch] = useState("");
+
+  //Combined Filter : Search & Button
+  const filteredData = useMemo(() => {
+    return sampleItems.filter((item) => {
+      const matchStatus =
+        selectedFilter === "All" || item.status === selectedFilter;
+
+      const matchSearch =
+        item.request.toLowerCase().includes(search.toLowerCase().trim());
+
+      return matchStatus && matchSearch;
+    });
+  }, [sampleItems, selectedFilter, search]);
+
   //Icons
   type IconName = ComponentProps<typeof Ionicons>["name"];
 
@@ -107,7 +124,7 @@ export default function Tasks() {
         </View>
 
         {/* Title */}
-        <Text style={styles.title}>{item.request}</Text>
+        <Text style={styles.title}>#{item.id} {item.request}</Text>
 
         {/* Description */}
         <Text style={styles.descriptionCard}>
@@ -129,9 +146,12 @@ export default function Tasks() {
 
         {/* Avatar + Buttons  */}
         <View style={styles.footer}>
+          {/* <TouchableOpacity onLongPress={() => Alert.alert(item.LM)}> */}
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}> {getAvatarLetter(item.LM)}</Text>
+            <Text style={styles.avatarText}> {item.LM}</Text>
           </View>
+          {/* </TouchableOpacity> */}
+
 
           <View style={styles.actions}>
             <TouchableHighlight underlayColor="#dde6f8" style={styles.iconButton} onPress={() => openInfoModal(item)} >
@@ -146,7 +166,7 @@ export default function Tasks() {
       </View>
 
       {/* View Info - Modal */}
-      <Modal visible={InfoModalVisible} animationType="slide" transparent={true}>
+      <Modal visible={InfoModalVisible} animationType="none" presentationStyle="fullScreen" onRequestClose={() => setInfoModalVisible(false)}>
         <View style={styles.modalOverlay}>
 
           <KeyboardAwareScrollView style={styles.ContainerView}
@@ -163,12 +183,12 @@ export default function Tasks() {
                     <Text style={styles.statusView}>{selectedCard.status}</Text>
                   </View>
                   <TouchableOpacity onPress={() => setInfoModalVisible(false)}>
-                    <Ionicons name="close" size={26} color="#374151" />
+                    <Ionicons name="close" size={30} color="#374151" />
                   </TouchableOpacity>
                 </View>
 
                 {/* Title */}
-                <Text style={styles.titleView}>{selectedCard.request}</Text>
+                <Text style={styles.titleView}>#{selectedCard.id} {selectedCard.request}</Text>
                 <Text style={styles.description}>
                   Provide written feedback on the three submitted concepts.
                 </Text>
@@ -220,28 +240,70 @@ export default function Tasks() {
                   />
                 </View>
 
-                {/* Remarks */}
-                <Text style={styles.sectionTitle}>Remarks</Text>
-                <TextInput
-                  style={styles.remarksInput}
-                  placeholder="Add Remarks"
-                  multiline
-                />
+                {/* Filter Button */}
+                {selectedCard?.status === "Todo" && (
+                  <>
+                    <Text style={styles.sectionTitle}>Remarks</Text>
+                    <TextInput
+                      style={styles.remarksInput}
+                      placeholder="Add Remarks"
+                      multiline
+                    />
+                    <TouchableOpacity
+                      style={{
+                        marginTop: 18,
+                        marginBottom: 40,
+                        height: 40,
+                        borderRadius: 15,
+                        backgroundColor: "#2563EB",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        flexDirection: "row",
+                      }}
+                      onPress={() => { setInfoModalVisible(false); console.log("Done ID:", selectedCard.id); }}>
 
-                {/* Done Button */}
-                <TouchableOpacity
-                  style={styles.doneButton}
-                  onPress={() => { setInfoModalVisible(false); console.log("Done ID:", selectedCard.id); }}>
+                      <Ionicons
+                        name="briefcase-outline"
+                        size={20}
+                        color="#FFF"
+                      />
 
-                  <Ionicons
-                    name="checkmark-circle-outline"
-                    size={20}
-                    color="#FFF"
-                  />
+                      <Text style={styles.doneText}>Start Task</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
 
-                  <Text style={styles.doneText}>Mark as Done</Text>
-                </TouchableOpacity>
+                {selectedCard?.status === "In Progress" && (
+                  <>
+                    <Text style={styles.sectionTitle}>Remarks</Text>
+                    <TextInput
+                      style={styles.remarksInput}
+                      placeholder="Add Remarks"
+                      multiline
+                    />
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: "#16A34A",
+                        marginTop: 18,
+                        marginBottom: 40,
+                        height: 40,
+                        borderRadius: 15,
+                        justifyContent: "center",
+                        alignItems: "center",
+                        flexDirection: "row",
+                      }}
+                      onPress={() => { setInfoModalVisible(false); console.log("Done ID:", selectedCard.id); }}>
 
+                      <Ionicons
+                        name="checkmark-circle-sharp"
+                        size={20}
+                        color="#FFF"
+                      />
+
+                      <Text style={styles.doneText}>Mark as Done</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
               </>
             )}
           </KeyboardAwareScrollView>
@@ -268,7 +330,7 @@ export default function Tasks() {
 
   return (
     <FlatList
-      data={sampleItems}
+      data={filteredData}
       keyExtractor={(item) => item.id}
       renderItem={renderItem}
       ListHeaderComponent={
@@ -280,6 +342,8 @@ export default function Tasks() {
             <TextInput
               placeholder="Search tasks..."
               placeholderTextColor="#999"
+              value={search}
+              onChangeText={setSearch}
               style={styles.input}
             />
           </View>
@@ -291,6 +355,7 @@ export default function Tasks() {
 
               return (
                 <TouchableOpacity
+                  activeOpacity={1}
                   key={item}
                   style={[
                     styles.filterButton,
@@ -326,10 +391,10 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: "#FFF",
     borderRadius: 20,
-    padding: 13,
+    padding: 17,
     borderWidth: 1,
     borderColor: "#E5E7EB",
-    margin: 8,
+    margin: 5,
     marginBottom: 0,
   },
 
@@ -421,7 +486,6 @@ const styles = StyleSheet.create({
   ContainerView: {
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
-    padding: 10,
     margin: 16,
     flex: 1,
   },
@@ -603,9 +667,11 @@ const styles = StyleSheet.create({
   },
 
   avatar: {
-    width: 32,
-    height: 32,
     borderRadius: 17,
+    paddingLeft: 10,
+    paddingRight: 10,
+    paddingTop: 3,
+    paddingBottom: 3,
     backgroundColor: "#E8EEF9",
     justifyContent: "center",
     alignItems: "center",
@@ -614,7 +680,7 @@ const styles = StyleSheet.create({
   avatarText: {
     color: "#2563EB",
     fontWeight: "700",
-    fontSize: 13,
+    fontSize: 12,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 4,

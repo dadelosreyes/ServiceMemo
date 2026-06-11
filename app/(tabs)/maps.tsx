@@ -1,17 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import React, { useState } from "react";
+import { Dimensions, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
-import {
-  Dimensions,
-  FlatList,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
-} from "react-native";
-
-
+//sample Data
 type ItemType = {
   id: string;
   acctno: string;
@@ -36,6 +27,7 @@ const sampleItems: ItemType[] = [
   //{ id: "6", acctno: "023458", acctname: "Mark Flores", contact: "09334445555", address: "123 Rizal St, Olongapo City", request: "Relocation", date: "2026-04-22", priority: "Medium", status: "In Progress", LM: "Jay Alcantara", latitude:0.7, longitude:0.4 },
 ];
 
+//Priority Colors
 const priorityColors = {
   High: {
     bg: "#FEE2E2",
@@ -56,6 +48,18 @@ const priorityColors = {
 const windowWidth = Dimensions.get("window").width;
 
 export default function Maps() {
+
+  //Get Data 
+  const [selectedItem, setSelectedItem] = useState<ItemType | null>(null);
+  const displayItem = selectedItem ?? sampleItems[0];
+
+  //Search Filter
+  const [search, setSearch] = useState("");
+
+  const filteredSearch = sampleItems.filter((item: ItemType) =>
+    item.request.toLowerCase().includes(search.toLowerCase().trim())
+  );
+
   return (
     <View style={styles.container}>
 
@@ -63,8 +67,10 @@ export default function Maps() {
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={18} color="#94A3B8" />
         <TextInput
-          placeholder="Search location or task"
+          placeholder="Search task..."
           placeholderTextColor="#94A3B8"
+          value={search}
+          onChangeText={setSearch}
           style={styles.searchInput}
         />
       </View>
@@ -73,25 +79,23 @@ export default function Maps() {
       <View style={styles.mapContainer}>
         <View style={styles.mapArea}>
 
-          {sampleItems.map((item) => (
-            <View
-              key={item.id}
-              style={[
-                styles.locationpin,
-                {
-                  backgroundColor: priorityColors[item.priority as keyof typeof priorityColors].bg || '#888',
-                  left: item.latitude * windowWidth - 12,
-                  top: item.longitude * 200 - 12, // map height = 200
-                },
-              ]}
-            >
-              <Ionicons name="radio-button-on" size={15} style={{ color: priorityColors[item.priority as keyof typeof priorityColors].text || '#888' }} />
-            </View>
-          ))}
-          {/* Optional current location button
-        <TouchableOpacity style={styles.currentLocationButton}>
-          <Ionicons name="navigate-outline" size={22} color="#fff" />
-        </TouchableOpacity> */}
+          {displayItem && (
+            <>
+              <View
+                key={displayItem.id}
+                style={[
+                  styles.locationpin,
+                  {
+                    backgroundColor: priorityColors[displayItem.priority as keyof typeof priorityColors].bg || '#888',
+                    left: displayItem.latitude * windowWidth - 12,
+                    top: displayItem.longitude * 200 - 12, // map height = 200
+                  },
+                ]}
+              >
+                <Ionicons name="radio-button-on" size={15} style={{ color: priorityColors[displayItem.priority as keyof typeof priorityColors].text || '#888' }} />
+              </View>
+            </>
+          )}
 
           {/* Controls */}
           <View style={styles.topControls}>
@@ -117,33 +121,32 @@ export default function Maps() {
 
         {/* Selected Task */}
         <View style={styles.selectedTask}>
-          <View style={styles.taskIcon}>
+          {/* <View style={styles.taskIcon}>
             <Ionicons name="location-outline" size={24} color="#fff" />
-          </View>
+          </View> */}
 
           <View style={{ flex: 1 }}>
             <View style={styles.row}>
-              <Text style={styles.taskTitleSelected}>Reconnection</Text>
+              <Text style={styles.taskTitleSelected}>{displayItem?.request}</Text>
 
-              <View style={styles.urgentBadge}>
-                <Text style={styles.urgentText}>Urgent</Text>
+              <View style={[styles.urgentBadge, { backgroundColor: priorityColors[displayItem?.priority as keyof typeof priorityColors]?.bg || '#888' }]}>
+                <Text style={[styles.urgentText, { color: priorityColors[displayItem?.priority as keyof typeof priorityColors]?.text || '#888' }]}>{displayItem?.priority}</Text>
               </View>
             </View>
 
-            {/* <Text style={styles.address}>
-            </Text> */}
+            <Text style={styles.address}>
+              <Text style={styles.metaText}>{displayItem?.address}</Text>
+            </Text>
 
             <View style={styles.metaRow}>
-              <Ionicons name="navigate-outline" size={13} color="#64748B" />
-              <Text style={styles.metaText}>1.2 km</Text>
-
-              <Ionicons name="time-outline" size={13} color="#64748B" />
-              <Text style={styles.metaText}>6 min</Text>
+              <Ionicons name="pin-outline" size={13} color="#64748B" />
+              <Text style={styles.metaText}>{displayItem?.longitude}</Text>
+              <Text style={styles.metaText}>{displayItem?.latitude}</Text>
             </View>
           </View>
 
           <TouchableOpacity style={styles.goButton}>
-            <Ionicons name="navigate" size={16} color="#fff" />
+            <Ionicons name="navigate" size={16} color="#ffffff" />
             <Text style={styles.goText}></Text>
           </TouchableOpacity>
         </View>
@@ -153,11 +156,11 @@ export default function Maps() {
       <Text style={styles.sectionTitle}>Nearby Tasks</Text>
 
       <FlatList
-        data={sampleItems}
+        data={filteredSearch}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
 
-          <TouchableOpacity style={styles.taskCard}>
+          <TouchableOpacity style={styles.taskCard} onPress={() => setSelectedItem(item)} activeOpacity={0.4} >
 
             <View style={[styles.taskIcon, { backgroundColor: priorityColors[item.priority as keyof typeof priorityColors].bg || '#888' }]}>
               <Ionicons name="location-sharp" size={20} style={{ color: priorityColors[item.priority as keyof typeof priorityColors].text || '#888' }} />
@@ -167,8 +170,8 @@ export default function Maps() {
               <Text style={styles.taskTitle}>{item.request}</Text>
               <Text style={styles.taskAddress}>{item.address}</Text>
             </View>
-            
-            {/* <Text style={styles.taskDistance}>{item.distance}</Text> */}
+
+            {/* <Text style={styles.reqid}>#{item.id}</Text> */}
           </TouchableOpacity>
         )}
       />
@@ -181,7 +184,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f9fafb",
     padding: 15,
-    marginTop: 2,
   },
 
   mapContainer: {
@@ -191,7 +193,8 @@ const styles = StyleSheet.create({
 
   },
   mapArea: {
-    height: 225,
+    width: "100%",
+    height: 180,
     backgroundColor: "#DCEAF2",
     position: "relative",
   },
@@ -204,22 +207,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  // currentLocationButton: {
-  //   position: "absolute",
-  //   bottom: 10,
-  //   right: 10,
-  //   width: 40,
-  //   height: 40,
-  //   borderRadius: 20,
-  //   backgroundColor: "#3b82f6",
-  //   justifyContent: "center",
-  //   alignItems: "center",
-  // },
+
   sectionTitle: {
     fontSize: 18,
     fontWeight: "700",
     color: "#111827",
-    marginTop: 20,
+    marginTop: 15,
     marginBottom: 10,
   },
 
@@ -229,7 +222,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     padding: 15,
     borderRadius: 20,
-    marginBottom: 8,
+    marginBottom: 5,
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
@@ -244,25 +237,26 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
 
-  taskInfo: { 
-    flex: 1 
+  taskInfo: {
+    flex: 1
   },
 
-  taskTitle: { 
+  taskTitle: {
     fontSize: 14,
-    fontWeight: "600", 
-    color: "#111827" 
+    fontWeight: "600",
+    color: "#111827"
   },
 
-  taskAddress: { 
-    fontSize: 12, 
-    color: "#6b7280" 
+  taskAddress: {
+    fontSize: 12,
+    color: "#6b7280"
   },
 
-  taskDistance: { 
-    fontSize: 12, 
-    color: "#2563eb", 
-    fontWeight: "500" },
+  reqid: {
+    fontSize: 12,
+    color: "#2563eb",
+    fontWeight: "500"
+  },
 
   //search bar
   searchContainer: {
@@ -295,13 +289,13 @@ const styles = StyleSheet.create({
   },
 
   controlBtn: {
-    width: 38,
-    height: 38,
+    width: 32,
+    height: 32,
     borderRadius: 12,
     backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 8,
+    marginBottom: 5,
   },
 
   //selected task
@@ -344,12 +338,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    marginTop: 6,
+    marginTop: 1,
   },
 
   metaText: {
     color: "#64748B",
-    marginRight: 8,
+    marginRight: 3,
   },
 
   goButton: {
@@ -358,7 +352,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#0F1A3C",
     paddingHorizontal: 10,
     paddingVertical: 10,
-    borderRadius: 20,
+    borderRadius: 27,
   },
 
   goText: {
