@@ -1,29 +1,19 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import React, { useState } from "react";
-import {
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import { Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 export default function Login() {
+    const router = useRouter();
+
     const [EmpID, setEmpID] = useState("");
     const [password, setPassword] = useState("");
-
-    const router = useRouter();
 
     return (
 
         <KeyboardAvoidingView
             behavior={Platform.OS === "android" ? "padding" : undefined}
-            style={styles.container}
-        >
+            style={styles.container}>
             <>
                 <Stack.Screen options={{ headerShown: false }} />
             </>
@@ -66,7 +56,7 @@ export default function Login() {
 
                 {/* Button */}
                 <TouchableOpacity style={styles.button}>
-                    <Text style={styles.buttonText} onPress={() => router.push("/")}>Log in</Text>
+                    <Text style={styles.buttonText} onPress={() => router.push("/(tabs)")}>Log in</Text>
                 </TouchableOpacity>
 
                 {/* Signup
@@ -96,7 +86,6 @@ const styles = StyleSheet.create({
         shadowRadius: 10,
         elevation: 5,
     },
-
 
     title: {
         fontSize: 22,

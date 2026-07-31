@@ -1,363 +1,437 @@
+import { sampleItems } from "@/database/models";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
-import { Dimensions, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import * as Location from 'expo-location';
+import React, { useEffect, useState } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-//sample Data
-type ItemType = {
-  id: string;
-  acctno: string;
-  acctname: string;
-  contact: string;
-  address: string;
-  request: string;
-  date: string;
-  priority: string;
-  status: string;
-  LM: string;
-  latitude: number;
-  longitude: number;
-};
+import { statuscolors } from "@/components/ui/statusbadge";
 
-const sampleItems: ItemType[] = [
-  { id: "1", acctno: "024458", acctname: "John Cruz", contact: "09171234567", address: "12 Sampaguita St, Angeles City", request: "Reconnection", date: "2026-04-22", priority: "High", status: "In Progress", LM: "Alex Morgan", latitude: 0.3, longitude: 0.2 },
-  { id: "2", acctno: "023158", acctname: "Maria Santos", contact: "09987654321", address: "90 National Highway, Bataan", request: "Disconnection", date: "2026-04-25", priority: "Medium", status: "Done", LM: "John Doe", latitude: 0.5, longitude: 0.5 },
-  { id: "3", acctno: "022358", acctname: "Kevin Reyes", contact: "09223334444", address: "78 Kalaklan Rd, Zambales", request: "Check wiring", date: "2026-04-29", priority: "High", status: "In Progress", LM: "Michael", latitude: 0.1, longitude: 0.5 },
-  { id: "4", acctno: "026258", acctname: "Angela Dizon", contact: "09175556666", address: "45 Gordon Ave, Subic", request: "Reconnection", date: "2026-04-23", priority: "Medium", status: "Todo", LM: "Sarah Jane Smith", latitude: 0.4, longitude: 0.7 },
-  { id: "5", acctno: "023458", acctname: "Mark Flores", contact: "09334445555", address: "123 Rizal St, Olongapo City", request: "Relocation", date: "2026-04-22", priority: "Low", status: "In Progress", LM: "Jay Alcantara", latitude: 0.7, longitude: 0.4 },
-  //{ id: "6", acctno: "023458", acctname: "Mark Flores", contact: "09334445555", address: "123 Rizal St, Olongapo City", request: "Relocation", date: "2026-04-22", priority: "Medium", status: "In Progress", LM: "Jay Alcantara", latitude:0.7, longitude:0.4 },
-];
+import { priorityColors } from "@/components/ui/prioritybadge";
 
-//Priority Colors
-const priorityColors = {
-  High: {
-    bg: "#FEE2E2",
-    text: "#EF4444",
-  },
+//import {Card}  from '@/components/ui/card';
 
-  Medium: {
-    bg: "#FEF3C7",
-    text: "#D97706",
-  },
 
-  Low: {
-    bg: "#DCFCE7",
-    text: "#16A34A",
-  },
-};
+export default function TaskScreen() {
 
-const windowWidth = Dimensions.get("window").width;
+  //Task Dropdown Modal
+ // const [TaskDropdownVisible, setTaskDropdownVisible] = useState(false);
 
-export default function Maps() {
+  //Filter Button - Tasks
+  // const [selectedFilter, setSelectedFilter] = useState("ALL");
+  // const filters = [
+  //   "ALL", ...Array.from(
+  //     new Set(sampleItems.map((item: any) => item.serviceMemoStatus))
+  //   ),
+  // ];
 
-  //Get Data 
-  const [selectedItem, setSelectedItem] = useState<ItemType | null>(null);
-  const displayItem = selectedItem ?? sampleItems[0];
+  // //Search Filter     
+  // const [search, setSearch] = useState("");
 
-  //Search Filter
-  const [search, setSearch] = useState("");
+  // //Combined Filter : Search + dropdown
+  // const filteredData = useMemo(() => {
+  //   return sampleItems.filter((item) => {
+  //     const matchStatus =
+  //       selectedFilter === "ALL" || item.status === selectedFilter;
 
-  const filteredSearch = sampleItems.filter((item: ItemType) =>
-    item.request.toLowerCase().includes(search.toLowerCase().trim())
-  );
+  //     const matchSearch =
+  //       item.status.toLowerCase().includes(search.toLowerCase().trim());
+
+  //     return matchStatus && matchSearch;
+  //   });
+  // }, [sampleItems, selectedFilter, search]);
+
+  //Card Total base on Status
+  const counts = (sampleItems ?? []).reduce<Record<string, number>>((acc, user) => {
+    acc[user.status] = (acc[user.status] || 0) + 1;
+    return acc;
+  }, {});
+
+  counts["ALL"] = sampleItems.length;
+
+  //reverse geocode lat long to location
+  const reverseGeocode = async (latitude: number, longitude: number) => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+
+      if (status !== "granted") {
+        console.log("Location permission denied");
+        return;
+      }
+      const result = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude,
+      });
+
+      if (result.length > 0) {
+        const address = result[0];
+
+        return `${address.name ?? ""}${address.street ?? ""}, ${address.city ?? ""
+          }, ${address.region ?? ""}, ${address.country ?? ""}`;
+      }
+      return "Unknown location";
+    } catch (error) {
+      console.log(error);
+      return "Unable to get address";
+    }
+  };
+
+  // get current / last known location
+
+  const [location, setLocation] = useState<any>(null);
+
+  useEffect(() => {
+    getLocation();
+  }, []);
+
+  const getLocation = async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+
+    if (status !== "granted") {
+      console.log("Permission denied");
+      return;
+    }
+
+    // Try last known location first
+    let currentLocation = await Location.getLastKnownPositionAsync();
+
+    // If unavailable, get a fresh location
+    if (!currentLocation) {
+      currentLocation = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+    }
+
+
+    setLocation(currentLocation);
+  };
 
   return (
-    <View style={styles.container}>
+    <>
+      <SafeAreaView edges={[]} style={styles.container}>
+        {/* <View style={styles.filterContainer}> */}
+        {/* Search */}
+        {/* <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#94A3B8" />
 
-      {/* Search */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={18} color="#94A3B8" />
-        <TextInput
-          placeholder="Search task..."
-          placeholderTextColor="#94A3B8"
-          value={search}
-          onChangeText={setSearch}
-          style={styles.searchInput}
-        />
-      </View>
+          <TextInput
+            placeholder="Search tasks..."
+            placeholderTextColor="#94A3B8"
+            style={styles.searchInput}
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View> */}
 
-      {/* Map Grid */}
-      <View style={styles.mapContainer}>
-        <View style={styles.mapArea}>
+        {/* Dropdown */}
+        {/* <TouchableOpacity
+          style={styles.dropdownButton}
+          onPress={() => setTaskDropdownVisible(true)}
+        >
+          <Ionicons
+            name="options"
+            size={20}
+            color="#64748B"
+          />
 
-          {displayItem && (
-            <>
-              <View
-                key={displayItem.id}
-                style={[
-                  styles.locationpin,
-                  {
-                    backgroundColor: priorityColors[displayItem.priority as keyof typeof priorityColors].bg || '#888',
-                    left: displayItem.latitude * windowWidth - 12,
-                    top: displayItem.longitude * 200 - 12, // map height = 200
-                  },
-                ]}
-              >
-                <Ionicons name="radio-button-on" size={15} style={{ color: priorityColors[displayItem.priority as keyof typeof priorityColors].text || '#888' }} />
+          <Text style={styles.dropdownText}>
+            {selectedFilter}
+          </Text>
+
+          <Ionicons
+            name="chevron-down"
+            size={18}
+            color="#64748B"
+          />
+        </TouchableOpacity>
+      </View> */}
+
+        {/* Modal for task dropdown */}
+        {/* <Modal
+        visible={TaskDropdownVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setTaskDropdownVisible(false)}>
+          
+        <TouchableWithoutFeedback
+          onPress={() => setTaskDropdownVisible(false)}>
+          <View style={styles.overlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalContainer}>
+                <Text style={styles.title}>SMS Type</Text>
+
+                {filteredData.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.option}
+                    onPress={() => {
+                      setSelectedFilter(item.status);
+                      setTaskDropdownVisible(false);
+                    }}
+                  >
+                    <Text>{item.status} ({counts[item.status] || 0})</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-            </>
-          )}
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal> */}
 
-          {/* Controls */}
-          <View style={styles.topControls}>
-            <TouchableOpacity style={styles.controlBtn}>
-              <Ionicons name="layers-outline" size={18} color="#334155" />
-            </TouchableOpacity>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 25 }}
+          showsVerticalScrollIndicator={false}>
 
-            <TouchableOpacity style={styles.controlBtn}>
-              <Ionicons name="locate-outline" size={18} color="#334155" />
-            </TouchableOpacity>
+          {/* Location Header */}
+
+          <View style={styles.header}>
+            <View style={styles.locationIcon}>
+              <Ionicons name="location-sharp" size={24} color="#fff" />
+            </View>
+
+            <View style={{ flex: 1 }}>
+              {location && (
+                <Text>
+                  {location.coords.latitude}, {location.coords.longitude}
+                </Text>
+              )}
+
+            </View>
+
+            <View style={styles.taskBadge}>
+              <Text style={styles.taskBadgeText}>4 TASKS</Text>
+            </View>
           </View>
 
-          <View style={styles.zoomControls}>
-            <TouchableOpacity style={styles.controlBtn}>
-              <Ionicons name="add" size={20} color="#334155" />
-            </TouchableOpacity>
+          {/* Cards */}
 
-            <TouchableOpacity style={styles.controlBtn}>
-              <Ionicons name="remove" size={20} color="#334155" />
-            </TouchableOpacity>
-          </View>
-        </View>
+          {sampleItems.map((task) => (
+            <View key={task.id} style={[styles.card, { borderLeftColor: statuscolors[task.status as keyof typeof statuscolors]?.color || '#888' }]}>
+              <View style={styles.cardTop}>
+                <Text style={styles.title}>{task.request}</Text>
 
-        {/* Selected Task */}
-        <View style={styles.selectedTask}>
-          {/* <View style={styles.taskIcon}>
-            <Ionicons name="location-outline" size={24} color="#fff" />
-          </View> */}
+                <View
+                  style={[styles.priority, { backgroundColor: priorityColors[task.priority as keyof typeof priorityColors].bg || '#888' }]}>
+                  <Text
+                    style={[
+                      styles.priorityText,
+                      { color: priorityColors[task.priority as keyof typeof priorityColors].text || '#888' }]}>
+                    {priorityColors[Number(task.priority) as keyof typeof priorityColors]?.label}
+                  </Text>
+                </View>
 
-          <View style={{ flex: 1 }}>
-            <View style={styles.row}>
-              <Text style={styles.taskTitleSelected}>{displayItem?.request}</Text>
-
-              <View style={[styles.urgentBadge, { backgroundColor: priorityColors[displayItem?.priority as keyof typeof priorityColors]?.bg || '#888' }]}>
-                <Text style={[styles.urgentText, { color: priorityColors[displayItem?.priority as keyof typeof priorityColors]?.text || '#888' }]}>{displayItem?.priority}</Text>
               </View>
+
+              <Text style={styles.description}>{reverseGeocode(task.latitude, task.longitude)}</Text>
+
+              {/* {task.LM !== "" && (
+              <View style={styles.userRow}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>JD</Text>
+                </View>
+
+                <Text style={styles.assigned}>
+                  Assigned to{" "}
+                  <Text style={{ color: "#5570F1" }}>
+                    {task.LM}
+                  </Text>
+                </Text>
+              </View>
+            )} */}
             </View>
-
-            <Text style={styles.address}>
-              <Text style={styles.metaText}>{displayItem?.address}</Text>
-            </Text>
-
-            <View style={styles.metaRow}>
-              <Ionicons name="pin-outline" size={13} color="#64748B" />
-              <Text style={styles.metaText}>{displayItem?.longitude}</Text>
-              <Text style={styles.metaText}>{displayItem?.latitude}</Text>
-            </View>
-          </View>
-
-          <TouchableOpacity style={styles.goButton}>
-            <Ionicons name="navigate" size={16} color="#ffffff" />
-            <Text style={styles.goText}></Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Nearby Tasks List */}
-      <Text style={styles.sectionTitle}>Nearby Tasks</Text>
-
-      <FlatList
-        data={filteredSearch}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-
-          <TouchableOpacity style={styles.taskCard} onPress={() => setSelectedItem(item)} activeOpacity={0.4} >
-
-            <View style={[styles.taskIcon, { backgroundColor: priorityColors[item.priority as keyof typeof priorityColors].bg || '#888' }]}>
-              <Ionicons name="location-sharp" size={20} style={{ color: priorityColors[item.priority as keyof typeof priorityColors].text || '#888' }} />
-            </View>
-
-            <View style={styles.taskInfo}>
-              <Text style={styles.taskTitle}>{item.request}</Text>
-              <Text style={styles.taskAddress}>{item.address}</Text>
-            </View>
-
-            {/* <Text style={styles.reqid}>#{item.id}</Text> */}
-          </TouchableOpacity>
-        )}
-      />
-    </View>
+          ))}
+        </ScrollView>
+      </SafeAreaView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f9fafb",
-    padding: 15,
+    paddingHorizontal: 4,
+    marginTop: 63,
   },
 
-  mapContainer: {
-    backgroundColor: "#fff",
-    borderRadius: 22,
-    overflow: "hidden",
-
-  },
-  mapArea: {
-    width: "100%",
-    height: 180,
-    backgroundColor: "#DCEAF2",
-    position: "relative",
-  },
-
-  locationpin: {
-    width: 30,
-    height: 30,
-    borderRadius: 24,
-    position: "absolute",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-    marginTop: 15,
-    marginBottom: 10,
-  },
-
-  taskCard: {
+  header: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
-    padding: 15,
-    borderRadius: 20,
-    marginBottom: 5,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    marginBottom: 10,
+    marginTop: 10,
+    marginLeft: 5,
+    marginRight: 5,
   },
 
-  taskIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#e5e7eb",
+  locationIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 18,
+    backgroundColor: "#6B7280",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
+    elevation: 6,
   },
 
-  taskInfo: {
-    flex: 1
+  address: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
   },
 
-  taskTitle: {
+  city: {
+    color: "#6B7280",
+    marginTop: 3,
     fontSize: 14,
-    fontWeight: "600",
-    color: "#111827"
   },
 
-  taskAddress: {
+  taskBadge: {
+    backgroundColor: "#6B7280",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+
+  taskBadgeText: {
+    color: "#fff",
+    fontWeight: "700",
     fontSize: 12,
-    color: "#6b7280"
   },
 
-  reqid: {
+  card: {
+    backgroundColor: "#FFF",
+    borderRadius: 20,
+    paddingLeft: 20,
+    paddingRight: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    margin: 3,
+    borderLeftWidth: 3,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+
+  cardTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  priority: {
+    backgroundColor: "#F3F4F6",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+
+  priorityText: {
+    color: "#ffffff",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+
+  title: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#111827",
+  },
+
+  description: {
+    color: "#667085",
     fontSize: 12,
-    color: "#2563eb",
-    fontWeight: "500"
+    marginTop: 2,
+    lineHeight: 22,
   },
 
-  //search bar
+  //filter container
+  filterContainer: {
+    gap: 8,
+    paddingLeft: 8,
+    paddingRight: 8,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 5,
+    marginTop: 5,
+  },
+
   searchContainer: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
-    height: 46,
-    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
     paddingHorizontal: 14,
-    marginBottom: 14,
+    height: 52,
+
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
   },
 
   searchInput: {
     flex: 1,
     marginLeft: 10,
+    fontSize: 15,
+    color: "#0F172A",
   },
 
-  //Map controls
-  topControls: {
-    position: "absolute",
-    right: 10,
-    top: 10,
-    gap: 8,
-  },
-
-  zoomControls: {
-    position: "absolute",
-    right: 10,
-    bottom: 14,
-  },
-
-  controlBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 12,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 5,
-  },
-
-  //selected task
-  selectedTask: {
-    flexDirection: "row",
-    padding: 16,
-    alignItems: "center",
-  },
-
-  row: {
+  dropdownButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "space-between",
+
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 52,
+    minWidth: 100,
+
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
   },
 
-  taskTitleSelected: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-
-  urgentBadge: {
-    backgroundColor: "#FFE5EB",
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 999,
-  },
-
-  urgentText: {
-    color: "#FF3366",
-    fontSize: 11,
+  dropdownText: {
+    marginHorizontal: 8,
+    fontSize: 12,
     fontWeight: "600",
+    color: "#334155",
   },
 
-  address: {
-    color: "#64748B",
-    marginTop: 2,
+  option: {
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    padding: 20,
   },
 
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    marginTop: 1,
+  modalContainer: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    maxHeight: '90%',
+    padding: 15,
   },
-
-  metaText: {
-    color: "#64748B",
-    marginRight: 3,
-  },
-
-  goButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#0F1A3C",
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    borderRadius: 27,
-  },
-
-  goText: {
-    color: "#fff",
-    fontWeight: "600",
-  },
-
 });

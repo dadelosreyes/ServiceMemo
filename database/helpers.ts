@@ -1,5 +1,5 @@
-import { getDb } from './db';
 import * as SQLite from 'expo-sqlite';
+import { getDb } from './db';
 
 /**
  * Execute a write query (INSERT, UPDATE, DELETE) and get the run result.

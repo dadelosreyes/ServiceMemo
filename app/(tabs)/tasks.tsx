@@ -1,533 +1,582 @@
-import { Feather, Ionicons } from "@expo/vector-icons";
-import { ComponentProps, default as React, useMemo, useState } from "react";
-import { FlatList, ListRenderItem, Modal, StyleSheet, Text, TextInput, TouchableHighlight, TouchableOpacity, View } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { Ionicons } from "@expo/vector-icons";
+import dayjs from "dayjs";
+import * as Location from 'expo-location';
+import { useMemo } from "react";
+import { FlatList, Linking, ListRenderItem, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-//sample data
-type ItemType = {
-  id: string;
-  acctno: string;
-  acctname: string;
-  contact: string;
-  address: string;
-  request: string;
-  date: string;
-  priority: string;
-  status: string;
-  LM: string;
-};
+//badge
+import { priorityColors } from "@/components/ui/prioritybadge";
+import { StatusBadge, statuscolors } from "@/components/ui/statusbadge";
 
-const sampleItems: ItemType[] = [
-  { id: "1", acctno: "024458", acctname: "John Cruz", contact: "09171234567", address: "12 Sampaguita St, Angeles City", request: "Reconnection", date: "2026-04-22", priority: "High", status: "In Progress", LM: "Alex Morgan" },
-  { id: "2", acctno: "023158", acctname: "Maria Santos", contact: "09987654321", address: "90 National Highway, Bataan", request: "Disconnection", date: "2026-04-25", priority: "Medium", status: "Done", LM: "John Doe" },
-  { id: "3", acctno: "022358", acctname: "Kevin Reyes", contact: "09223334444", address: "78 Kalaklan Rd, Zambales", request: "Check wiring", date: "2026-04-29", priority: "High", status: "In Progress", LM: "Michael" },
-  { id: "4", acctno: "026258", acctname: "Angela Dizon", contact: "09175556666", address: "45 Gordon Ave, Subic", request: "Reconnection", date: "2026-04-23", priority: "Medium", status: "Todo", LM: "Sarah Jane Smith" },
-  { id: "5", acctno: "023458", acctname: "Mark Flores", contact: "09334445555", address: "123 Rizal St, Olongapo City", request: "Relocation", date: "2026-04-22", priority: "Low", status: "In Progress", LM: "Jay Alcantara" },
-];
+// pull data from API
+import { useRefreshContext } from '@/contexts/refreshcontext';
+import { TaskType } from "@/database/models";
+import { fetchTasks } from "@/scripts/api";
+import React, { useCallback, useEffect, useState } from "react";
 
-//Priority Badge
-const priorityColors = {
-  High: {
-    bg: "#FEE2E2",
-    text: "#EF4444",
-  },
-
-  Medium: {
-    bg: "#FEF3C7",
-    text: "#D97706",
-  },
-
-  Low: {
-    bg: "#DCFCE7",
-    text: "#16A34A",
-  },
-};
-
-//Status Colors
-const StatusColors = {
-  Todo: '#6b6b6b',
-  "In Progress": '#6b6b6b',
-  Done: '#00a300',
-};
+//navigation
+//import { useRouter } from 'expo-router';
 
 export default function Tasks() {
 
-  //Make Card Visible
-  //const [LocModalVisible, setLocModalVisible] = useState(false);
-  const [InfoModalVisible, setInfoModalVisible] = useState(false);
+  //const router = useRouter();
 
-  //Modal Info
-  const openInfoModal = (item: ItemType) => {
-    setSelectedCard(item);
-    setInfoModalVisible(true);
-  };
+  //pull data from API
+  const { registerRefresh } = useRefreshContext();
+  const [SMS, setSMS] = useState<any[]>([]);
+
+  const loadData = useCallback(async () => {
+    try {
+      const data = await fetchTasks();
+      setSMS(data);
+      console.log("SUCCESS:", data);
+    } catch (error) {
+      console.log("ERROR:", error);
+      throw error;
+    }
+  }, []);
+
+  useEffect(() => {
+    const unregister = registerRefresh(loadData);
+
+    loadData();
+
+    return () => {
+      unregister();
+    };
+  }, [loadData, registerRefresh]);
+
+  //Card Total base on Status
+  const counts = (SMS ?? []).reduce<Record<string, number>>((acc, user) => {
+    acc[user.serviceMemoStatus] = (acc[user.serviceMemoStatus] || 0) + 1;
+    return acc;
+  }, {});
+
+  counts["ALL"] = SMS.length;
 
   //Get Data - Modal
-  const [selectedCard, setSelectedCard] = useState<ItemType | null>(null);
+  const [selectedCard, setSelectedCard] = useState<TaskType | null>(null);
+
+  //Task Dropdown Modal
+  const [TaskDropdownVisible, setTaskDropdownVisible] = useState(false);
 
   //Filter Button - Tasks
-  const [selectedFilter, setSelectedFilter] = useState("All");
-  const filters = ["All", "Todo", "In Progress", "Done"];
+  const [selectedFilter, setSelectedFilter] = useState("PENDING");
+  const filters = [
+    "ALL", ...Array.from(
+      new Set(SMS.map((item: any) => item.serviceMemoStatus))
+    ),
+  ];
 
-  //Search Filter
+  //Search Filter     
   const [search, setSearch] = useState("");
 
-  //Combined Filter : Search & Button
+  //Combined Filter : Search + dropdown 
   const filteredData = useMemo(() => {
-    return sampleItems.filter((item) => {
+    return SMS.filter((item) => {
       const matchStatus =
-        selectedFilter === "All" || item.status === selectedFilter;
+        selectedFilter === "ALL" || item.serviceMemoStatus === selectedFilter;
 
       const matchSearch =
-        item.request.toLowerCase().includes(search.toLowerCase().trim());
+        item.smsType.toLowerCase().includes(search.toLowerCase().trim());
 
       return matchStatus && matchSearch;
     });
-  }, [sampleItems, selectedFilter, search]);
+  }, [SMS, selectedFilter, search]);
 
-  //Icons
-  type IconName = ComponentProps<typeof Ionicons>["name"];
+  //reverse geocode lat long
+  const reverseGeocode = async (latitude: number, longitude: number) => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
 
-  //Modal - Consumer Detail Row
-  interface DetailRowProps {
-    icon: IconName;
-    title: string;
-    subtitle: string;
-  }
+      if (status !== "granted") {
+        console.log("Location permission denied");
+        return;
+      }
+      const result = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude,
+      });
 
-  //get avatar initials
-  const getAvatarLetter = (name = "") => {
-    return name
-      .trim()
-      .split(" ")
-      .filter(Boolean)
-      .map(part => part[0].toUpperCase())
-      .slice(0, 2)
-      .join("");
+      if (result.length > 0) {
+        const address = result[0];
+
+        return `${address.name ?? ""}${address.street ?? ""}, ${address.city ?? ""
+          }, ${address.region ?? ""}, ${address.country ?? ""}`;
+      }
+      return "Unknown location";
+    } catch (error) {
+      console.log(error);
+      return "Unable to get address";
+    }
   };
 
-  const renderItem: ListRenderItem<ItemType> = ({ item }) => (
+  //get avatar initials
+  // const getAvatarLetter = (name = "") => {
+  //   return name
+  //     .trim()
+  //     .split(" ")
+  //     .filter(Boolean)
+  //     .map(part => part[0].toUpperCase())
+  //     .slice(0, 2)
+  //     .join("");
+  // };
 
-    <View style={styles.container}>
-      <View style={styles.card}>
 
-        {/* Status + Priority */}
+  //Priority
+  const PriorityBadge = ({ priority }: { priority: number }) => (
+    <View style={[styles.priorityBadge, { backgroundColor: priorityColors[priority as keyof typeof priorityColors].bg || '#888' }]}>
+      <Text style={[styles.priorityText, { color: priorityColors[priority as keyof typeof priorityColors].text || '#888' }]}> {priorityColors[Number(priority) as keyof typeof priorityColors]?.label}</Text>
+    </View>
+  );
+
+  // Open Map
+  const openMap = async (latitude: number, longitude: number) => {
+    const url = `google.navigation:q=${latitude},${longitude}`;
+
+    const supported = await Linking.canOpenURL(url);
+
+    if (supported) {
+      await Linking.openURL(url);
+    } else {
+      Linking.openURL(
+        `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`
+      );
+    }
+  };
+
+  const renderItem: ListRenderItem<TaskType> = ({ item }) => (
+
+    <SafeAreaView edges={[]} style={styles.containerCard}>
+      <View style={[styles.card, { borderLeftColor: statuscolors[item.serviceMemoStatus as keyof typeof statuscolors]?.color || '#888' }]}>
+
+        {/* Header */}
         <View style={styles.header}>
-          <View style={styles.statusRow}>
-            <View style={[styles.dot, { backgroundColor: StatusColors[item.status as keyof typeof StatusColors] || '#888' }]} />
-            <Text style={styles.statusText}>{item.status}</Text>
+          {/* <View style={styles.iconWrapper}>
+          <Ionicons name="alert-circle-outline" size={20} color="#D97706" />
+        </View> */}
+
+          <View style={{ flex: 1 }}>
+
+            {/* <Text style={styles.dateLabel}>{item.remarks}</Text> */}
+            <Text style={styles.title}>{item.smsType}</Text>
+            {/* <Text style={styles.subtitle}>{reverseGeocode(item.latitude, item.longitude)}</Text> */}
+
+            <View style={styles.badgeRow}>
+              <StatusBadge serviceMemoStatus={item.serviceMemoStatus} />
+
+              <View style={styles.locationTag}>
+                <Ionicons name="person-circle-sharp" size={18} color="#4B5563" />
+                <Text style={styles.locationText}>{item.endorsedBy}</Text>
+              </View>
+            </View>
           </View>
 
-          <View style={[styles.priorityBadge, { backgroundColor: priorityColors[item.priority as keyof typeof priorityColors].bg || '#888' }]}>
-            <Text style={[styles.priorityText, { color: priorityColors[item.priority as keyof typeof priorityColors].text || '#888' }]}>{item.priority}</Text>
-          </View>
+          <PriorityBadge priority={item.priority} />
         </View>
 
-        {/* Title */}
-        <Text style={styles.title}>#{item.id} {item.request}</Text>
+        {/* Divider */}
+        <View style={styles.divider} />
 
-        {/* Description */}
-        <Text style={styles.descriptionCard}>
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt
-        </Text>
-
-        {/* Date + Location */}
-        <View style={styles.infoRow}>
-          <View style={styles.infoItem}>
-            <Feather name="clock" size={15} color="#6B7280" />
-            <Text style={styles.infoText}>{item.date}</Text>
-          </View>
-
-          <View style={styles.infoItem}>
-            <Feather name="map-pin" size={15} color="#6B7280" />
-            <Text style={styles.infoText}>{item.address}</Text>
-          </View>
-        </View>
-
-        {/* Avatar + Buttons  */}
+        {/* Footer */}
         <View style={styles.footer}>
-          {/* <TouchableOpacity onLongPress={() => Alert.alert(item.LM)}> */}
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}> {item.LM}</Text>
+          <View style={styles.dateContainer}>
+            <View style={styles.dateIcon}>
+              <Ionicons name="calendar" size={18} color="#4B5563" />
+            </View>
+
+            <View>
+              <Text style={styles.dateLabel}>Date Created</Text>
+              <Text style={styles.dateText}>{dayjs(item.transDate).format("MMMM DD, YYYY")}</Text>
+            </View>
           </View>
-          {/* </TouchableOpacity> */}
 
-
-          <View style={styles.actions}>
-            <TouchableHighlight underlayColor="#dde6f8" style={styles.iconButton} onPress={() => openInfoModal(item)} >
-              <Ionicons name="eye-sharp" size={20} color="#374151" />
-            </TouchableHighlight>
-
-            {/* <TouchableHighlight style={styles.primaryButton} >
-              <Ionicons name="location-outline" size={20} color="#374151" />
-            </TouchableHighlight> */}
-          </View>
+          <TouchableOpacity style={styles.viewButton} onPress={() => setSelectedCard(item)}>
+            <Text style={styles.statusButton} >VIEW</Text>
+          </TouchableOpacity>
         </View>
       </View>
+    </SafeAreaView>
+  )
 
-      {/* View Info - Modal */}
-      <Modal visible={InfoModalVisible} animationType="none" presentationStyle="fullScreen" onRequestClose={() => setInfoModalVisible(false)}>
-        <View style={styles.modalOverlay}>
+  // Data Modal Label- Modal
+  const DetailItem = ({
+    label,
+    value,
+  }: {
+    label: string;
+    value: React.ReactNode;
+  }) => (
+    <View style={styles.section}>
+      <Text style={styles.label}>{label}</Text>
+      {value}
+    </View>
+  );
 
-          <KeyboardAwareScrollView style={styles.ContainerView}
-            enableOnAndroid
-            extraScrollHeight={100}
-            keyboardShouldPersistTaps="handled">
+  return (
+    <>
+      <SafeAreaView edges={[]} style={styles.container}>
+        <View style={styles.filterContainer}>
 
-            {selectedCard && (
-              <>
-                {/* Status */}
-                <View style={styles.header}>
-                  <View style={styles.statusRowView}>
-                    <View style={[styles.dotView, { backgroundColor: StatusColors[selectedCard.status as keyof typeof StatusColors] || '#888' }]} />
-                    <Text style={styles.statusView}>{selectedCard.status}</Text>
-                  </View>
-                  <TouchableOpacity onPress={() => setInfoModalVisible(false)}>
-                    <Ionicons name="close" size={30} color="#374151" />
+          {/* Search */}
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color="#94A3B8" />
+
+            <TextInput
+              placeholder="Search tasks..."
+              placeholderTextColor="#94A3B8"
+              style={styles.searchInput}
+              value={search}
+              onChangeText={setSearch}
+            />
+
+          </View>
+
+          {/* Dropdown */}
+          <TouchableOpacity
+            style={styles.dropdownButton}
+            onPress={() => setTaskDropdownVisible(true)}>
+
+            <Ionicons
+              name="options"
+              size={20}
+              color="#64748B"
+            />
+
+            <Text style={styles.dropdownText}>
+              {selectedFilter}
+            </Text>
+
+            <Ionicons
+              name="chevron-down"
+              size={18}
+              color="#64748B"
+            />
+
+          </TouchableOpacity>
+        </View>
+
+        <FlatList
+          data={filteredData}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={renderItem}
+        />
+
+        {/* Modal for task dropdown */}
+        <Modal
+          visible={TaskDropdownVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setTaskDropdownVisible(false)}
+        >
+
+          <TouchableWithoutFeedback
+            onPress={() => setTaskDropdownVisible(false)}>
+            <View style={styles.overlay}>
+              <TouchableWithoutFeedback>
+                <View style={styles.modalContainer}>
+                  <Text style={styles.title}>SMS Type</Text>
+
+                  {filters
+                    .map((item) => (
+                      <TouchableOpacity
+                        key={item}
+                        style={styles.option}
+                        onPress={() => {
+                          setSelectedFilter(item);
+                          setTaskDropdownVisible(false);
+                        }}
+                      >
+                        <Text>{item} ({counts[item] || 0})</Text>
+                      </TouchableOpacity>
+                    ))}
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <Modal
+            visible={!!selectedCard}
+            transparent
+            animationType="slide"
+          >
+            <View style={styles.overlay}>
+              <View style={styles.modalContainer}>
+                <View style={styles.modalHeader}>
+
+                  <Text style={styles.modalTitle}>Task Details</Text>
+
+                  <TouchableOpacity onPress={() => setSelectedCard(null)}>
+                    <Ionicons name="close" size={24} />
                   </TouchableOpacity>
                 </View>
 
-                {/* Title */}
-                <Text style={styles.titleView}>#{selectedCard.id} {selectedCard.request}</Text>
-                <Text style={styles.description}>
-                  Provide written feedback on the three submitted concepts.
-                </Text>
+                {selectedCard && (
+                  <ScrollView showsVerticalScrollIndicator={false}>
 
-                {/* Map */}
-                <View style={styles.mapContainer}>
-                  <View style={[styles.locationPin, { backgroundColor: priorityColors[selectedCard.priority as keyof typeof priorityColors].bg || '#888' }]}>
-                    <Ionicons name="location-sharp" size={24} style={{ color: priorityColors[selectedCard.priority as keyof typeof priorityColors].text || '#888' }} />
-                  </View>
-
-                  <View style={styles.remoteBadge}>
-                    <Ionicons name="location-outline" size={16} color="#4B5563" />
-                    <Text style={styles.remoteText}>{selectedCard.address}</Text>
-                  </View>
-                </View>
-
-                {/* Consumer Details */}
-                <Text style={styles.sectionTitle}>Consumer Details</Text>
-                <View style={styles.consumerCard}>
-
-                  <DetailRow
-                    icon="mail-sharp"
-                    title={selectedCard.acctno}
-                    subtitle="Account Number"
-                  />
-
-                  <DetailRow
-                    icon="person-sharp"
-                    title={selectedCard.acctname}
-                    subtitle={"Consumer Name"}
-                  />
-
-                  <DetailRow
-                    icon="call-sharp"
-                    title={selectedCard.contact}
-                    subtitle="Contact Number"
-                  />
-
-                  <DetailRow
-                    icon="time-sharp"
-                    title={selectedCard.date}
-                    subtitle="Due Date"
-                  />
-
-                  <DetailRow
-                    icon="location-sharp"
-                    title={selectedCard.address}
-                    subtitle="Location"
-                  />
-                </View>
-
-                {/* Filter Button */}
-                {selectedCard?.status === "Todo" && (
-                  <>
-                    <Text style={styles.sectionTitle}>Remarks</Text>
-                    <TextInput
-                      style={styles.remarksInput}
-                      placeholder="Add Remarks"
-                      multiline
+                    <DetailItem
+                      label="Service Memo Status"
+                      value={
+                        <StatusBadge serviceMemoStatus={selectedCard.serviceMemoStatus} />
+                      }
                     />
-                    <TouchableOpacity
-                      style={{
-                        marginTop: 18,
-                        marginBottom: 40,
-                        height: 40,
-                        borderRadius: 15,
-                        backgroundColor: "#2563EB",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        flexDirection: "row",
-                      }}
-                      onPress={() => { setInfoModalVisible(false); console.log("Done ID:", selectedCard.id); }}>
 
-                      <Ionicons
-                        name="briefcase-outline"
-                        size={20}
-                        color="#FFF"
-                      />
-
-                      <Text style={styles.doneText}>Start Task</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-
-                {selectedCard?.status === "In Progress" && (
-                  <>
-                    <Text style={styles.sectionTitle}>Remarks</Text>
-                    <TextInput
-                      style={styles.remarksInput}
-                      placeholder="Add Remarks"
-                      multiline
+                    <DetailItem
+                      label="SMS Type"
+                      value={
+                        <Text style={styles.valueText}>
+                          {selectedCard.smsType}
+                        </Text>
+                      }
                     />
-                    <TouchableOpacity
-                      style={{
-                        backgroundColor: "#16A34A",
-                        marginTop: 18,
-                        marginBottom: 40,
-                        height: 40,
-                        borderRadius: 15,
-                        justifyContent: "center",
-                        alignItems: "center",
-                        flexDirection: "row",
-                      }}
-                      onPress={() => { setInfoModalVisible(false); console.log("Done ID:", selectedCard.id); }}>
 
-                      <Ionicons
-                        name="checkmark-circle-sharp"
-                        size={20}
-                        color="#FFF"
-                      />
+                     <DetailItem
+                      label="Account Number"
+                      value={
+                        <Text style={styles.valueText}>
+                          {selectedCard.acctNo}
+                        </Text>
+                      }
+                    />
 
-                      <Text style={styles.doneText}>Mark as Done</Text>
-                    </TouchableOpacity>
-                  </>
+                    <DetailItem
+                      label="Meter SN"
+                      value={
+                        <Text style={styles.valueText}>
+                          {selectedCard.meterSn}
+                        </Text>
+                      }
+                    />
+
+                    <DetailItem
+                      label="Contact Number"
+                      value={
+                        <Text style={styles.valueText}>
+                          {selectedCard.contactNo}
+                        </Text>
+                      }
+                    />
+
+                    <DetailItem
+                      label="Remarks"
+                      value={
+                        <Text style={styles.valueText}>
+                          {selectedCard.remarks}
+                        </Text>
+                      }
+                    />
+
+                    <DetailItem
+                      label="Date Created"
+                      value={
+                        <View style={styles.row}>
+                          <Ionicons
+                            name="calendar-outline"
+                            size={16}
+                          />
+                          <Text style={styles.valueText}>
+                            {dayjs(selectedCard.transDate).format("MMMM DD, YYYY | hh:mm A")}
+                          </Text>
+                        </View>
+                      }
+                    />
+
+                    <View style={styles.section}>
+                      <Text style={styles.label}>
+                        Location Description
+                      </Text>
+
+                      <View style={styles.locationCard}>
+                        <View style={styles.row}>
+                          <Text style={styles.locationTitle}>
+                            {reverseGeocode(selectedCard.latitude, selectedCard.longitude)}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <TouchableOpacity
+                        onPress={() => openMap(selectedCard.latitude, selectedCard.longitude)}
+                        style={{
+                          marginTop: 18,
+                          marginBottom: 8,
+                          height: 40,
+                          borderRadius: 15,
+                          backgroundColor: "#0369A1",
+                          justifyContent: "center",
+                          alignItems: "center",
+                          flexDirection: "row",
+                        }}
+                      >
+
+                        <Ionicons
+                          name="navigate-circle"
+                          size={20}
+                          color="#FFF"
+                        />
+
+                        <Text style={styles.doneText}>View Location</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <DetailItem
+                      label="Priority Level"
+                      value={
+                        <PriorityBadge
+                          priority={selectedCard.priority}
+                        />
+                      }
+                    />
+
+                    <View style={styles.section}>
+                      <Text style={styles.label}>
+                        Assigned To
+                      </Text>
+
+                      <View style={styles.userRow}>
+                        <View style={styles.avatar}>
+                          <Ionicons
+                            name="person"
+                            size={20}
+                            color="#4B5563"
+                          />
+                        </View>
+
+                        <View>
+                          <Text style={styles.userName}>
+                            {selectedCard.endorsedTo}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    <View style={styles.section}>
+                      <Text style={styles.label}>
+                        Assigned By
+                      </Text>
+
+                      <View style={styles.userRow}>
+                        <View style={styles.avatar}>
+                          <Ionicons
+                            name="person"
+                            size={20}
+                            color="#4B5563"
+                          />
+                        </View>
+
+                        <View>
+                          <Text style={styles.userName}>
+                            {selectedCard.endorsedBy}
+                          </Text>
+
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Filter Button */}
+                    {selectedCard?.serviceMemoStatus !== "ACCOMPLISHED" && (
+                      <>
+                        <Text style={styles.sectionTitle}>Action</Text>
+
+                        <TextInput
+                          style={styles.remarksInput}
+                          multiline
+                        />
+
+                        <TouchableOpacity
+                          style={{
+                            marginTop: 18,
+                            marginBottom: 8,
+                            height: 40,
+                            borderRadius: 15,
+                            backgroundColor: "#0369A1",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            flexDirection: "row",
+                          }}
+                        >
+
+                          <Ionicons
+                            name="arrow-redo"
+                            size={16}
+                            color="#FFF"
+                          />
+
+                          <Text style={styles.doneText}>Submit</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                  </ScrollView>
                 )}
-              </>
-            )}
-          </KeyboardAwareScrollView>
-        </View>
-      </Modal>
-    </View>
-  )
-
-  // Consumer Details - Modal
-  function DetailRow({ icon, title, subtitle }: DetailRowProps) {
-    return (
-      <View style={styles.detailRow}>
-        <View style={styles.iconCircle}>
-          <Ionicons name={icon} size={18} color="#1E3A8A" />
-        </View>
-
-        <View>
-          <Text style={styles.detailTitle}>{title}</Text>
-          <Text style={styles.detailSubtitle}>{subtitle}</Text>
-        </View>
-      </View>
-    );
-  }
-
-  return (
-    <FlatList
-      data={filteredData}
-      keyExtractor={(item) => item.id}
-      renderItem={renderItem}
-      ListHeaderComponent={
-
-        //Search Bar
-        <View style={styles.container}>
-          <View style={styles.searchContainer}>
-            <Ionicons name="search" size={20} color="#999" />
-            <TextInput
-              placeholder="Search tasks..."
-              placeholderTextColor="#999"
-              value={search}
-              onChangeText={setSearch}
-              style={styles.input}
-            />
-          </View>
-
-          {/* Task Filter */}
-          <View style={styles.filtersRow}>
-            {filters.map((item) => {
-              const active = selectedFilter === item;
-
-              return (
-                <TouchableOpacity
-                  activeOpacity={1}
-                  key={item}
-                  style={[
-                    styles.filterButton,
-                    active && styles.activeFilterButton,
-                  ]}
-                  onPress={() => setSelectedFilter(item)}
-                >
-                  <Text
-                    style={[
-                      styles.filterText,
-                      active && styles.activeFilterText,
-                    ]}
-                  >
-                    {item}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-      }
-    />
+              </View>
+            </View>
+          </Modal>
+        </ScrollView>
+      </SafeAreaView >
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f9fafb",
+    paddingHorizontal: 4,
+    marginTop: 63,
+    backgroundColor: "#f9f9f9",
+  },
+  containerCard: {
+    flex: 1,
+    paddingHorizontal: 4,
   },
 
   card: {
     backgroundColor: "#FFF",
     borderRadius: 20,
-    padding: 17,
+    paddingLeft: 20,
+    paddingRight: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: "#dddddd",
     margin: 5,
-    marginBottom: 0,
+    borderLeftWidth: 3,
+
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
 
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-
-  infoRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginTop: 7,
+    alignItems: "flex-start",
   },
 
   title: {
     fontSize: 18,
     fontWeight: "700",
     color: "#111827",
-    marginTop: 5,
+    marginBottom: 8,
   },
 
-  actions: {
-    flexDirection: "row",
-    gap: 10,
+  subtitle: {
+    fontSize: 12,
+    color: "#111827",
+    marginBottom: 12,
   },
-
-  //search bar
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFF",
-    borderRadius: 15,
-    paddingHorizontal: 14,
-    height: 40,
-    width: "95%",
-    marginTop: 10,
-    marginLeft: 12,
-  },
-
-  input: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 16,
-  },
-
-  //filter
-  filtersRow: {
-    flexDirection: "row",
-    marginTop: 10,
-    marginBottom: 5,
-    gap: 6,
-    alignItems: "flex-start",
-    flexWrap: "wrap",
-    marginLeft: 15,
-  },
-
-  filterButton: {
-    backgroundColor: "#ffffff",
-    borderWidth: 1,
-    borderColor: "#c4c1c1",
-    paddingHorizontal: 20,
-    height: 35,
-    borderRadius: 18,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  activeFilterButton: {
-    backgroundColor: "#000000",
-  },
-
-  filterText: {
-    color: "#333",
-    fontWeight: "500",
-    fontSize: 13,
-  },
-
-  activeFilterText: {
-    color: "#FFF",
-  },
-
-  //View Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "#f9fafb70",
-  },
-
-  ContainerView: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    margin: 16,
-    flex: 1,
-  },
-
-  statusRowView: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  dotView: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#94A3B8",
-    marginRight: 8,
-  },
-
-  statusView: {
-    color: "#64748B",
-    fontSize: 13,
-  },
-
+  
   //Remarks + Button
   remarksInput: {
-    backgroundColor: "#FFF",
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    minHeight: 120,
+    minHeight: 100,
     textAlignVertical: "top",
-    padding: 16,
-  },
-
-  doneButton: {
-    marginTop: 18,
-    marginBottom: 40,
-    height: 40,
-    borderRadius: 15,
-    backgroundColor: "#2563EB",
-    justifyContent: "center",
-    alignItems: "center",
-    flexDirection: "row",
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+    borderRadius: 14,
+    marginBottom: 8,
   },
 
   doneText: {
@@ -537,130 +586,37 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
 
-  //Status + Priority
-  statusRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 6,
-    backgroundColor: "#1D9BF0",
-    marginRight: 8,
-  },
-
-  statusText: {
-    color: "#475569",
+  statusButton: {
+    color: "#4B5563",
     fontSize: 12,
+    fontWeight: "700",
   },
 
   priorityBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 99,
+    backgroundColor: "#F3F4F6",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
 
   priorityText: {
-    color: '#fff',
+    color: "#ffffff",
     fontSize: 12,
-    fontWeight: 'bold',
-  },
-
-  //title
-  titleView: {
-    fontSize: 18,
     fontWeight: "700",
-    color: "#111827",
-    marginTop: 12,
-  },
-
-  description: {
-    fontSize: 13,
-    color: "#64748B",
-    marginTop: 2,
-    lineHeight: 15,
-  },
-
-  //Description
-  descriptionCard: {
-    marginTop: 5,
-    color: "#64748B",
-    fontSize: 13,
-    lineHeight: 22,
-  },
-
-  //Location
-  mapContainer: {
-    height: 200,
-    borderRadius: 24,
-    backgroundColor: "#EEF2F7",
-    marginTop: 15,
-    justifyContent: "center",
-    alignItems: "center",
-    overflow: "hidden",
-  },
-
-  locationPin: {
-    width: 32,
-    height: 32,
-    borderRadius: 22,
-    backgroundColor: "#2563EB",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  remoteBadge: {
-    position: "absolute",
-    bottom: 16,
-    left: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFF",
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-
-  remoteText: {
-    marginLeft: 2,
-    color: "#374151",
-    fontSize: 13,
-  },
-
-  infoItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginRight: 18,
-  },
-
-  infoText: {
-    marginLeft: 5,
-    color: "#64748B",
-    fontSize: 13,
   },
 
   //Consumer Details
   sectionTitle: {
-    marginTop: 20,
-    marginBottom: 10,
+    marginTop: 10,
+    marginBottom: 5,
     fontSize: 16,
     fontWeight: "700",
     color: "#111827",
-  },
-
-  consumerCard: {
-    backgroundColor: "#FFF",
-    borderRadius: 24,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    marginLeft: 10,
   },
 
   //Avatar + Button
   footer: {
-    marginTop: 10,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -668,59 +624,220 @@ const styles = StyleSheet.create({
 
   avatar: {
     borderRadius: 17,
-    paddingLeft: 10,
-    paddingRight: 10,
-    paddingTop: 3,
-    paddingBottom: 3,
-    backgroundColor: "#E8EEF9",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  avatarText: {
-    color: "#2563EB",
-    fontWeight: "700",
-    fontSize: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 4,
-  },
-
-  iconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 34,
+    height: 34,
     backgroundColor: "#F3F4F6",
     justifyContent: "center",
     alignItems: "center",
   },
 
-  // Modal Consumer Info
-  iconCircle: {
-    width: 35,
-    height: 35,
-    borderRadius: 24,
-    backgroundColor: "#E8EEF9",
-    justifyContent: "center",
+  badgeRow: {
+    flexDirection: "row",
     alignItems: "center",
-    marginRight: 14,
+    gap: 8,
   },
 
-  detailTitle: {
-    fontSize: 14,
-    fontWeight: "600",
+  locationTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+
+  locationText: {
+    color: '#666',
+    marginLeft: 4,
+    fontSize: 12,
+    fontWeight: 600,
+  },
+
+  divider: {
+    height: 1,
+    backgroundColor: "#F1F5F9",
+    marginVertical: 15,
+  },
+
+  dateContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  dateIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    backgroundColor: "#EEF2FF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+
+  dateLabel: {
+    fontSize: 12,
+    color: "#6B7280",
+  },
+
+  dateText: {
+    fontSize: 13,
+    fontWeight: "700",
     color: "#111827",
   },
 
-  detailSubtitle: {
-    color: "#6B7280",
-    marginTop: 1,
-    fontSize: 12,
+  viewButton: {
+    width: 100,
+    height: 30,
+    borderRadius: 10,
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    alignItems: "center",
   },
 
-  detailRow: {
+  //modal 
+  section: {
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+    borderRadius: 14,
+    padding: 15,
+    marginBottom: 8,
+  },
+
+  label: {
+    color: '#888',
+    fontSize: 12,
+    marginBottom: 5,
+  },
+
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+
+  modalContainer: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    maxHeight: '95%',
+    padding: 20,
+  },
+
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginLeft: 10,
+    marginTop: 10,
+  },
+
+  valueText: {
+    fontSize: 15,
+    color: '#222',
+    fontWeight: "bold",
+  },
+
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+
+  locationCard: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 12,
+  },
+
+  locationTitle: {
+    marginLeft: 8,
+    fontWeight: '600',
+    color: '#333',
+  },
+
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  userName: {
+    fontWeight: '600',
+    fontSize: 12,
+    color: '#888',
+    marginLeft: 8,
+  },
+
+  //search ui
+  filterContainer: {
+    gap: 8,
+    paddingLeft: 8,
+    paddingRight: 8,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 5,
+    marginTop: 5,
+  },
+
+  searchContainer: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 17,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 52,
+
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+
+  searchInput: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 15,
+    color: "#0F172A",
+  },
+
+  dropdownButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 52,
+    minWidth: 100,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+
+  dropdownText: {
+    marginHorizontal: 8,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#334155",
+  },
+
+  option: {
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
   },
 });
